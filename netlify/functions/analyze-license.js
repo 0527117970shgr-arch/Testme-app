@@ -1,6 +1,7 @@
-const fetch = require('node-fetch');
-
 exports.handler = async (event) => {
+    // Dynamic import for node-fetch (ESM)
+    const { default: fetch } = await import('node-fetch');
+
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Make sure to use POST.' };
     }
