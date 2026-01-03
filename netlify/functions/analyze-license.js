@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+// Native fetch is available in Node 18+ on Netlify
 
 export const handler = async (event) => {
     if (event.httpMethod !== 'POST') {

@@ -1,7 +1,7 @@
 import { schedule } from '@netlify/functions';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
-import fetch from 'node-fetch'; // Import fetch explicitly
+// Native fetch is available in Node 18+ on Netlify
 
 // Since we are in a serverless function, we need to polyfill fetch for older node versions 
 // or trust that Node 18+ has it. Netlify usually uses modern Node. 

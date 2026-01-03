@@ -1,4 +1,4 @@
-import fetch from 'node-fetch'; // Explicitly importing, safe in ESM
+// Native fetch is available in Node 18+ on Netlify
 
 export const handler = async (event) => {
     // Only allow POST requests
