@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { db, storage } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import Tesseract from 'tesseract.js';
+
 
 const BookingForm = () => {
     const [formData, setFormData] = useState({
@@ -25,35 +25,70 @@ const BookingForm = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
+    const preprocessImage = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+
+                    ctx.drawImage(img, 0, 0);
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    const data = imageData.data;
+
+                    // Grayscale & High Contrast
+                    for (let i = 0; i < data.length; i += 4) {
+                        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                        const contrast = avg > 128 ? 255 : 0; // Binarization
+                        data[i] = contrast;     // R
+                        data[i + 1] = contrast; // G
+                        data[i + 2] = contrast; // B
+                    }
+
+                    ctx.putImageData(imageData, 0, 0);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]); // Return base64 content
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    };
+
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         setLicenseImage(file);
 
-        // Start OCR
         setStatus('ocr_processing');
-        setOcrProgress(0);
+        setOcrProgress(10);
 
         try {
-            const result = await Tesseract.recognize(
-                file,
-                'heb', // Hebrew language
-                {
-                    logger: m => {
-                        if (m.status === 'recognizing text') {
-                            setOcrProgress(Math.floor(m.progress * 100));
-                        }
-                    }
-                }
-            );
+            // 1. Pre-process
+            const base64Image = await preprocessImage(file);
+            setOcrProgress(40);
 
-            const text = result.data.text;
-            console.log("OCR Extracted Text:", text);
+            // 2. Call Google Vision via Netlify Function
+            const response = await fetch('/.netlify/functions/analyze-license', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageBase64: base64Image })
+            });
 
-            // Basic extraction logic (Naive approach)
-            // Trying to find sequences of numbers for license plate
-            // and Hebrew names for the owner
+            const result = await response.json();
+            setOcrProgress(100);
 
+            if (!response.ok) {
+                throw new Error(result.error || "Failed to analyze image");
+            }
+
+            const text = result.text;
+            console.log("Google Vision Extracted Text:", text);
+
+            // 3. Extraction Logic
             const lines = text.split('\n');
             let potentialPlate = '';
             let potentialDate = '';
@@ -63,7 +98,7 @@ const BookingForm = () => {
 
             lines.forEach(line => {
                 const cleanLine = line.trim();
-                // License plate: often 7 or 8 digits, maybe with dashes
+                // License plate: strictly 7 or 8 digits
                 if (/^\d{7,8}$/.test(cleanLine.replace(/-/g, ''))) {
                     potentialPlate = cleanLine.replace(/-/g, '');
                 }
@@ -71,8 +106,6 @@ const BookingForm = () => {
                 // Expiry Date extraction
                 const dateMatch = cleanLine.match(dateRegex);
                 if (dateMatch) {
-                    // Normalize to YYYY-MM-DD for input[type="date"]
-                    // Assuming DD/MM/YYYY
                     let day = dateMatch[1];
                     let month = dateMatch[2];
                     let year = dateMatch[3];
@@ -85,19 +118,18 @@ const BookingForm = () => {
                 }
             });
 
-            // Updating form with best guesses
             setFormData(prev => ({
                 ...prev,
                 licensePlate: potentialPlate || prev.licensePlate,
                 testDate: potentialDate || prev.testDate
             }));
 
-            alert(`סריקה הושלמה! \nאנא וודא שהפרטים (כולל תוקף רישיון) נכונים.`);
+            alert(`סריקה הושלמה! \nאנא וודא שהפרטים נכונים.`);
             setStatus('');
 
         } catch (err) {
             console.error(err);
-            alert("שגיאה בסריקת הקובץ. אנא מלא את הפרטים ידנית.");
+            alert("שגיאה בסריקת הקובץ. אנא נסה שוב או מלא ידנית.");
             setStatus('');
         }
     };
@@ -136,6 +168,13 @@ const BookingForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Validation: License Plate
+        if (formData.licensePlate && !/^\d{7,8}$/.test(formData.licensePlate)) {
+            alert("מספר רכב לא תקין. נא להזין 7 או 8 ספרות בלבד.");
+            return;
+        }
+
         setStatus('submitting');
 
         try {
@@ -208,11 +247,18 @@ const BookingForm = () => {
         <div style={{ maxWidth: '500px', margin: '0 auto', padding: '2rem', backgroundColor: 'var(--color-bg-light)', borderRadius: 'var(--border-radius)', boxShadow: 'var(--shadow-md)' }}>
             <h3 style={{ textAlign: 'center', color: 'var(--color-primary)', marginBottom: '1.5rem' }}>הזמנת שירות חדש</h3>
 
-            <div style={{ marginBottom: '1.5rem', padding: '15px', border: '2px dashed #ccc', borderRadius: '8px', textAlign: 'center', backgroundColor: '#f9f9f9' }}>
-                <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>📸 צלם או העלה רישיון רכב</label>
-                <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'block', margin: '0 auto' }} />
-                {status === 'ocr_processing' && <p style={{ color: 'blue', marginTop: '5px' }}>מפענח טקסט... {ocrProgress}%</p>}
-                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '5px' }}>המערכת תנסה למלא את הפרטים אוטומטית</p>
+            <div style={{ marginBottom: '1.5rem', padding: '15px', border: '2px dashed #2196F3', borderRadius: '8px', textAlign: 'center', backgroundColor: '#e3f2fd' }}>
+                <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.1rem' }}>📸 סריקת רישיון רכב (חדש!)</label>
+
+                <div style={{ fontSize: '0.9rem', marginBottom: '10px', color: '#555', textAlign: 'right', display: 'inline-block' }}>
+                    <div>✨ <strong>הוראות לסריקה מוצלחת:</strong></div>
+                    <div>1. וודא שאין השתקפות (פלאש) על הטקסט</div>
+                    <div>2. צלם את הרישיון מקרוב ובצורה ישרה</div>
+                    <div>3. תמונות מטושטשות לא ייקלטו</div>
+                </div>
+
+                <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'block', margin: '15px auto' }} />
+                {status === 'ocr_processing' && <p style={{ color: 'blue', marginTop: '5px', fontWeight: 'bold' }}>מעבד תמונה... (אנא המתן)</p>}
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
