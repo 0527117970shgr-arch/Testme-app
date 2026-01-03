@@ -1,4 +1,6 @@
-exports.handler = async (event) => {
+import fetch from 'node-fetch'; // Explicitly importing, safe in ESM
+
+export const handler = async (event) => {
     // Only allow POST requests
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };

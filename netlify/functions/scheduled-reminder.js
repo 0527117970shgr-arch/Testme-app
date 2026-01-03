@@ -1,12 +1,13 @@
-const { schedule } = require('@netlify/functions');
-const { initializeApp, getApps, getApp } = require('firebase/app');
-const { getFirestore, collection, getDocs, doc, getDoc, query, where } = require('firebase/firestore');
+import { schedule } from '@netlify/functions';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getFirestore, collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
+import fetch from 'node-fetch'; // Import fetch explicitly
 
 // Since we are in a serverless function, we need to polyfill fetch for older node versions 
 // or trust that Node 18+ has it. Netlify usually uses modern Node. 
 // We will use standard fetch.
 
-exports.handler = schedule("@daily", async (event) => {
+export const handler = schedule("@daily", async (event) => {
     console.log("--- Daily Reminder Cron Job Started ---");
 
     // Initialize Firebase (Singleton pattern for Functions)
