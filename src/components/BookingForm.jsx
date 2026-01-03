@@ -128,9 +128,18 @@ const BookingForm = () => {
             setStatus('');
 
         } catch (err) {
-            console.error(err);
-            alert("שגיאה בסריקת הקובץ. אנא נסה שוב או מלא ידנית.");
+            console.error("OCR Error:", err);
+            const isGoogleError = err.message && (err.message.includes("Missing API Key") || err.message.includes("Server configuration"));
+
+            if (isGoogleError) {
+                alert("שגיאת מערכת: מפתח Google API חסר. \nאנא הזן את הפרטים ידנית.");
+            } else {
+                alert("לא הצלחנו לפענח את התמונה. \nנא להזין את פרטי הרכב ידנית.");
+            }
+        } finally {
+            // ALWAYS reset status so user can edit/submit manually
             setStatus('');
+            setOcrProgress(0);
         }
     };
 
@@ -169,11 +178,15 @@ const BookingForm = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validation: License Plate
-        if (formData.licensePlate && !/^\d{7,8}$/.test(formData.licensePlate)) {
-            alert("מספר רכב לא תקין. נא להזין 7 או 8 ספרות בלבד.");
+        // Validation: License Plate (Allow dashes, but check for 7-8 digits)
+        const cleanPlate = formData.licensePlate.replace(/\D/g, ''); // Remove non-digits
+        if (formData.licensePlate && (cleanPlate.length < 7 || cleanPlate.length > 8)) {
+            alert("מספר רכב לא תקין. נא להזין 7 או 8 ספרות.");
             return;
         }
+
+        // Update state with clean plate before sending
+        const finalData = { ...formData, licensePlate: cleanPlate };
 
         setStatus('submitting');
 
@@ -187,7 +200,7 @@ const BookingForm = () => {
             }
 
             const docData = {
-                ...formData,
+                ...finalData,
                 licenseImageUrl,
                 timestamp: new Date(),
                 status: 'חדש'
@@ -196,15 +209,16 @@ const BookingForm = () => {
             await addDoc(collection(db, "bookings"), docData);
 
             // Send SMS to Admin
-            await sendSmsToAdmin(formData);
+            await sendSmsToAdmin(finalData);
 
             setStatus('success');
             setSubmittedData(docData);
-            setFormData({ name: '', phone: '', address: '', carType: '', service: 'טסט שנתי', date: '', time: '', licensePlate: '' });
+            setFormData({ name: '', phone: '', address: '', carType: '', service: 'טסט שנתי', date: '', time: '', licensePlate: '', testDate: '' });
             setLicenseImage(null);
         } catch (error) {
             console.error("Error adding document: ", error);
             setStatus('error');
+            alert("אירעה שגיאה בשליחת הטופס. נסה שוב.");
         }
     };
 

@@ -60,10 +60,10 @@ exports.handler = async (event) => {
         };
 
     } catch (error) {
-        console.error("Function Error:", error);
+        console.error("Analyze-License Function CRITICAL Error:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: error.toString() })
+            body: JSON.stringify({ error: `Function Error: ${error.message}` })
         };
     }
 };
