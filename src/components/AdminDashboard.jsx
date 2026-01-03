@@ -142,6 +142,12 @@ const AdminDashboard = () => {
                                     <td style={{ padding: '15px' }}>
                                         <div>{booking.carType}</div>
                                         <div style={{ fontSize: '0.9em', color: '#666' }}>{booking.address}</div>
+                                        {booking.licensePlate && <div style={{ fontWeight: 'bold' }}>{booking.licensePlate}</div>}
+                                        {booking.licenseImageUrl && (
+                                            <a href={booking.licenseImageUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: 'blue', textDecoration: 'underline' }}>
+                                                📷 הצג רישיון
+                                            </a>
+                                        )}
                                     </td>
                                     <td style={{ padding: '15px' }}>{booking.service}<br />{booking.date} {booking.time}</td>
                                     <td style={{ padding: '15px' }}>

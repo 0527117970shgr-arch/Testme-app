@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { db } from '../firebase';
+import { db, storage } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import Tesseract from 'tesseract.js';
 
 const BookingForm = () => {
     const [formData, setFormData] = useState({
@@ -10,20 +12,89 @@ const BookingForm = () => {
         carType: '',
         service: 'טסט שנתי',
         date: '',
-        time: ''
+        time: '',
+        licensePlate: ''
     });
-    const [status, setStatus] = useState(''); // 'submitting', 'success', 'error'
+    const [status, setStatus] = useState(''); // 'submitting', 'success', 'error', 'ocr_processing'
     const [submittedData, setSubmittedData] = useState(null);
+    const [licenseImage, setLicenseImage] = useState(null);
+    const [ocrProgress, setOcrProgress] = useState(0);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setLicenseImage(file);
+
+        // Start OCR
+        setStatus('ocr_processing');
+        setOcrProgress(0);
+
+        try {
+            const result = await Tesseract.recognize(
+                file,
+                'heb', // Hebrew language
+                {
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                            setOcrProgress(Math.floor(m.progress * 100));
+                        }
+                    }
+                }
+            );
+
+            const text = result.data.text;
+            console.log("OCR Extracted Text:", text);
+
+            // Basic extraction logic (Naive approach)
+            // Trying to find sequences of numbers for license plate
+            // and Hebrew names for the owner
+
+            const lines = text.split('\n');
+            let potentialPlate = '';
+            let potentialName = '';
+            let potentialModel = '';
+
+            // Very basic heuristic
+            lines.forEach(line => {
+                const cleanLine = line.trim();
+                // License plate: often 7 or 8 digits, maybe with dashes
+                if (/^\d{7,8}$/.test(cleanLine.replace(/-/g, ''))) {
+                    potentialPlate = cleanLine.replace(/-/g, '');
+                }
+
+                // Heuristic: Name often after keywort "בעל" or "שם" or just early in list
+                // Model often has year (20XX)
+                if (cleanLine.includes('20') && cleanLine.length < 20) {
+                    // Maybe model year?
+                }
+            });
+
+            // To be safe, let's just dump the text into console for now and do simple update
+            // Updating form with best guesses
+            setFormData(prev => ({
+                ...prev,
+                licensePlate: potentialPlate || prev.licensePlate,
+                // We keep other fields to let user fill/correct
+            }));
+
+            alert(`סריקה הושלמה! \nטקסט שזוהה: \n ${text.substring(0, 100)}... \n\nאנא וודא שהפרטים בטופס נכונים.`);
+            setStatus('');
+
+        } catch (err) {
+            console.error(err);
+            alert("שגיאה בסריקת הקובץ. אנא מלא את הפרטים ידנית.");
+            setStatus('');
+        }
     };
 
     const sendSmsToAdmin = async (data) => {
         console.log("Sending order to Netlify Function...");
 
         try {
-            // Call our own backend function (relative path)
             const response = await fetch('/.netlify/functions/send-sms', {
                 method: 'POST',
                 headers: {
@@ -57,18 +128,30 @@ const BookingForm = () => {
         setStatus('submitting');
 
         try {
-            await addDoc(collection(db, "bookings"), {
+            let licenseImageUrl = '';
+
+            if (licenseImage) {
+                const storageRef = ref(storage, `licenses/${Date.now()}_${licenseImage.name}`);
+                await uploadBytes(storageRef, licenseImage);
+                licenseImageUrl = await getDownloadURL(storageRef);
+            }
+
+            const docData = {
                 ...formData,
+                licenseImageUrl,
                 timestamp: new Date(),
                 status: 'חדש'
-            });
+            };
+
+            await addDoc(collection(db, "bookings"), docData);
 
             // Send SMS to Admin
             await sendSmsToAdmin(formData);
 
             setStatus('success');
-            setSubmittedData(formData);
-            setFormData({ name: '', phone: '', address: '', carType: '', service: 'טסט שנתי', date: '', time: '' });
+            setSubmittedData(docData);
+            setFormData({ name: '', phone: '', address: '', carType: '', service: 'טסט שנתי', date: '', time: '', licensePlate: '' });
+            setLicenseImage(null);
         } catch (error) {
             console.error("Error adding document: ", error);
             setStatus('error');
@@ -89,6 +172,7 @@ const BookingForm = () => {
                     <div><strong>טלפון:</strong> {submittedData.phone}</div>
                     <div><strong>כתובת איסוף:</strong> {submittedData.address}</div>
                     <div><strong>סוג רכב:</strong> {submittedData.carType}</div>
+                    <div><strong>מספר רכב:</strong> {submittedData.licensePlate}</div>
                     <div><strong>שירות:</strong> {submittedData.service}</div>
                     <div><strong>מועד מועדף:</strong> {submittedData.date} בשעה {submittedData.time}</div>
                 </div>
@@ -112,6 +196,14 @@ const BookingForm = () => {
     return (
         <div style={{ maxWidth: '500px', margin: '0 auto', padding: '2rem', backgroundColor: 'var(--color-bg-light)', borderRadius: 'var(--border-radius)', boxShadow: 'var(--shadow-md)' }}>
             <h3 style={{ textAlign: 'center', color: 'var(--color-primary)', marginBottom: '1.5rem' }}>הזמנת שירות חדש</h3>
+
+            <div style={{ marginBottom: '1.5rem', padding: '15px', border: '2px dashed #ccc', borderRadius: '8px', textAlign: 'center', backgroundColor: '#f9f9f9' }}>
+                <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>📸 צלם או העלה רישיון רכב</label>
+                <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'block', margin: '0 auto' }} />
+                {status === 'ocr_processing' && <p style={{ color: 'blue', marginTop: '5px' }}>מפענח טקסט... {ocrProgress}%</p>}
+                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '5px' }}>המערכת תנסה למלא את הפרטים אוטומטית</p>
+            </div>
+
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <input
                     type="text"
@@ -149,6 +241,15 @@ const BookingForm = () => {
                     required
                     style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '1rem' }}
                 />
+                <input
+                    type="text"
+                    name="licensePlate"
+                    placeholder="מספר רכב"
+                    value={formData.licensePlate}
+                    onChange={handleChange}
+                    style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '1rem' }}
+                />
+
                 <select
                     name="service"
                     value={formData.service}
@@ -185,7 +286,7 @@ const BookingForm = () => {
                     </div>
                 </div>
 
-                <button type="submit" disabled={status === 'submitting'} style={{
+                <button type="submit" disabled={status === 'submitting' || status === 'ocr_processing'} style={{
                     backgroundColor: 'var(--color-primary)',
                     color: 'var(--color-secondary)',
                     padding: '12px',
@@ -195,7 +296,7 @@ const BookingForm = () => {
                     fontSize: '1.1rem',
                     marginTop: '10px',
                     cursor: 'pointer',
-                    opacity: status === 'submitting' ? 0.7 : 1
+                    opacity: (status === 'submitting' || status === 'ocr_processing') ? 0.7 : 1
                 }}>
                     {status === 'submitting' ? 'שולח...' : 'הזמן שירות'}
                 </button>
