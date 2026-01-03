@@ -89,12 +89,72 @@ const AdminDashboard = () => {
         );
     }
 
+    // Settings Logic
+    const [showSettings, setShowSettings] = useState(false);
+    const [smsTemplate, setSmsTemplate] = useState('שלום [Customer Name], תזכורת: בעוד שבועיים יפוג תוקף הרישיון לרכב [License Plate]. אל תשכח לבצע טסט!');
+
+    // Fetch settings on load
+    useEffect(() => {
+        if (isAuthenticated) {
+            fetchSettings();
+        }
+    }, [isAuthenticated]);
+
+    const fetchSettings = async () => {
+        try {
+            // In a real app we might have a dedicated collection. using 'settings/sms' doc
+            const docRef = doc(db, "settings", "sms");
+            const docSnap = await import('firebase/firestore').then(m => m.getDoc(docRef));
+
+            if (docSnap.exists()) {
+                setSmsTemplate(docSnap.data().template);
+            }
+        } catch (error) {
+            console.error("Error fetching settings: ", error);
+        }
+    };
+
+    const saveSettings = async () => {
+        try {
+            await import('firebase/firestore').then(m => m.setDoc(doc(db, "settings", "sms"), { template: smsTemplate }));
+            alert("הגדרות נשמרו בהצלחה!");
+            setShowSettings(false);
+        } catch (error) {
+            console.error("Error saving settings: ", error);
+            alert("שגיאה בשמירת הגדרות");
+        }
+    };
+
     return (
         <div style={{ padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
                 <h2>לוח בקרה - ניהול הזמנות</h2>
-                <button onClick={fetchBookings} style={{ padding: '5px 15px', cursor: 'pointer' }}>רענן נתונים 🔄</button>
+                <div>
+                    <button onClick={() => setShowSettings(!showSettings)} style={{ padding: '5px 15px', marginLeft: '10px', cursor: 'pointer', backgroundColor: '#607d8b', color: 'white', border: 'none', borderRadius: '4px' }}>
+                        ⚙️ הגדרות תזכורות
+                    </button>
+                    <button onClick={fetchBookings} style={{ padding: '5px 15px', cursor: 'pointer' }}>רענן נתונים 🔄</button>
+                </div>
             </div>
+
+            {/* Settings Modal/Panel */}
+            {showSettings && (
+                <div className="fade-in" style={{
+                    marginBottom: '20px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9'
+                }}>
+                    <h3>עריכת תבנית SMS לתזכורת</h3>
+                    <p style={{ fontSize: '0.9rem', color: '#666' }}>השתמש בתגיות: [Customer Name], [License Plate]</p>
+                    <textarea
+                        value={smsTemplate}
+                        onChange={(e) => setSmsTemplate(e.target.value)}
+                        style={{ width: '100%', minHeight: '80px', padding: '10px', marginTop: '10px', fontSize: '1rem' }}
+                    />
+                    <div style={{ marginTop: '10px', textAlign: 'left' }}>
+                        <button onClick={saveSettings} style={{ padding: '8px 20px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>שמור הגדרות</button>
+                        <button onClick={() => setShowSettings(false)} style={{ padding: '8px 20px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '10px' }}>סגור</button>
+                    </div>
+                </div>
+            )}
 
             {loading ? <p>טוען נתונים...</p> : (
                 <div style={{ overflowX: 'auto', boxShadow: '0 0 10px rgba(0,0,0,0.1)', borderRadius: '8px' }}>
@@ -107,7 +167,6 @@ const AdminDashboard = () => {
                                 <th style={{ padding: '15px' }}>רכב וכתובת</th>
                                 <th style={{ padding: '15px' }}>שירות</th>
                                 <th style={{ padding: '15px' }}>סטטוס</th>
-                                <th style={{ padding: '15px' }}>פעולות</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -143,6 +202,7 @@ const AdminDashboard = () => {
                                         <div>{booking.carType}</div>
                                         <div style={{ fontSize: '0.9em', color: '#666' }}>{booking.address}</div>
                                         {booking.licensePlate && <div style={{ fontWeight: 'bold' }}>{booking.licensePlate}</div>}
+                                        {booking.testDate && <div style={{ fontSize: '0.9em', color: '#2e7d32' }}>תוקף: {booking.testDate}</div>}
                                         {booking.licenseImageUrl && (
                                             <a href={booking.licenseImageUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: 'blue', textDecoration: 'underline' }}>
                                                 📷 הצג רישיון
@@ -169,9 +229,6 @@ const AdminDashboard = () => {
                                             <option value="הושלם" style={{ color: 'black' }}>הושלם</option>
                                             <option value="בוטל" style={{ color: 'black' }}>בוטל</option>
                                         </select>
-                                    </td>
-                                    <td style={{ padding: '15px' }}>
-                                        {/* Actions could be delete etc. Status is main action */}
                                     </td>
                                 </tr>
                             ))}

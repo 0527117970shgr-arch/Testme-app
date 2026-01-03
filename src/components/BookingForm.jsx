@@ -13,7 +13,8 @@ const BookingForm = () => {
         service: 'טסט שנתי',
         date: '',
         time: '',
-        licensePlate: ''
+        licensePlate: '',
+        testDate: ''
     });
     const [status, setStatus] = useState(''); // 'submitting', 'success', 'error', 'ocr_processing'
     const [submittedData, setSubmittedData] = useState(null);
@@ -55,10 +56,11 @@ const BookingForm = () => {
 
             const lines = text.split('\n');
             let potentialPlate = '';
-            let potentialName = '';
-            let potentialModel = '';
+            let potentialDate = '';
 
-            // Very basic heuristic
+            // Regex for date DD/MM/YYYY or DD.MM.YYYY
+            const dateRegex = /\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b/;
+
             lines.forEach(line => {
                 const cleanLine = line.trim();
                 // License plate: often 7 or 8 digits, maybe with dashes
@@ -66,22 +68,31 @@ const BookingForm = () => {
                     potentialPlate = cleanLine.replace(/-/g, '');
                 }
 
-                // Heuristic: Name often after keywort "בעל" or "שם" or just early in list
-                // Model often has year (20XX)
-                if (cleanLine.includes('20') && cleanLine.length < 20) {
-                    // Maybe model year?
+                // Expiry Date extraction
+                const dateMatch = cleanLine.match(dateRegex);
+                if (dateMatch) {
+                    // Normalize to YYYY-MM-DD for input[type="date"]
+                    // Assuming DD/MM/YYYY
+                    let day = dateMatch[1];
+                    let month = dateMatch[2];
+                    let year = dateMatch[3];
+
+                    if (year.length === 2) year = '20' + year;
+                    if (day.length === 1) day = '0' + day;
+                    if (month.length === 1) month = '0' + month;
+
+                    potentialDate = `${year}-${month}-${day}`;
                 }
             });
 
-            // To be safe, let's just dump the text into console for now and do simple update
             // Updating form with best guesses
             setFormData(prev => ({
                 ...prev,
                 licensePlate: potentialPlate || prev.licensePlate,
-                // We keep other fields to let user fill/correct
+                testDate: potentialDate || prev.testDate
             }));
 
-            alert(`סריקה הושלמה! \nטקסט שזוהה: \n ${text.substring(0, 100)}... \n\nאנא וודא שהפרטים בטופס נכונים.`);
+            alert(`סריקה הושלמה! \nאנא וודא שהפרטים (כולל תוקף רישיון) נכונים.`);
             setStatus('');
 
         } catch (err) {
@@ -250,6 +261,16 @@ const BookingForm = () => {
                     style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '1rem' }}
                 />
 
+                <div style={{ padding: '10px', backgroundColor: '#e9f7ef', borderRadius: '5px', border: '1px solid #c8e6c9' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#2e7d32', fontWeight: 'bold' }}>תוקף רישיון (לצורך תזכורת):</label>
+                    <input
+                        type="date"
+                        name="testDate"
+                        value={formData.testDate}
+                        onChange={handleChange}
+                        style={{ width: '100%', padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '1rem' }}
+                    />
+                </div>
                 <select
                     name="service"
                     value={formData.service}
