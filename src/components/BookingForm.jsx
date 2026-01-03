@@ -19,55 +19,36 @@ const BookingForm = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // Twilio Configuration
-    const TWILIO_ACCOUNT_SID = import.meta.env.VITE_TWILIO_ACCOUNT_SID;
-    const TWILIO_AUTH_TOKEN = import.meta.env.VITE_TWILIO_AUTH_TOKEN;
-    const ADMIN_PHONE = import.meta.env.VITE_ADMIN_PHONE;
-    const TWILIO_FROM_PHONE = import.meta.env.VITE_TWILIO_FROM_PHONE;
-
     const sendSmsToAdmin = async (data) => {
-        const messageBody = `הזמנה חדשה ב-TestMe!\nשם: ${data.name}\nטלפון: ${data.phone}\nרכב: ${data.carType}\nכתובת: ${data.address}\nשירות: ${data.service}\nמועד: ${data.date} ${data.time}`;
-
-        console.log("Attempting to send SMS via Twilio...");
-        console.log("From:", TWILIO_FROM_PHONE);
-        console.log("To:", ADMIN_PHONE);
+        console.log("Sending order to Netlify Function...");
 
         try {
-            const params = new URLSearchParams();
-            params.append('To', ADMIN_PHONE);
-            params.append('From', TWILIO_FROM_PHONE);
-            params.append('Body', messageBody);
-
-            const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+            // Call our own backend function (relative path)
+            const response = await fetch('/.netlify/functions/send-sms', {
                 method: 'POST',
                 headers: {
-                    'Authorization': 'Basic ' + btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`),
-                    'Content-Type': 'application/x-www-form-urlencoded'
+                    'Content-Type': 'application/json'
                 },
-                body: params
+                body: JSON.stringify({
+                    name: data.name,
+                    phone: data.phone,
+                    cartype: data.carType,
+                    address: data.address,
+                    service: data.service,
+                    date: data.date,
+                    time: data.time
+                })
             });
 
-            // Always try to read the text, even if error
-            const textResponse = await response.text();
-
-            console.log("Twilio Response Status:", response.status);
-            console.log("Twilio Response Body:", textResponse);
+            const result = await response.json();
 
             if (response.ok) {
-                console.log("SMS sent successfully!");
+                console.log("SMS sent via Function:", result);
             } else {
-                console.error("Failed to send SMS. Status:", response.status);
-                // Try parsing JSON error if possible
-                try {
-                    const jsonError = JSON.parse(textResponse);
-                    console.error("Twilio Error Code:", jsonError.code);
-                    console.error("Twilio Error Message:", jsonError.message);
-                } catch (e) {
-                    console.error("Raw Error Body:", textResponse);
-                }
+                console.error("Failed to send SMS via Function:", result);
             }
         } catch (error) {
-            console.error("Network/Fetch Error sending SMS:", error);
+            console.error("Network Error calling Function:", error);
         }
     };
 
