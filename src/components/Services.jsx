@@ -1,4 +1,7 @@
 import React from 'react';
+import testServiceImg from '../assets/test-service.png';
+import mechanicServiceImg from '../assets/mechanic-service.png';
+import bodyworkServiceImg from '../assets/bodywork-service.png';
 
 const Services = () => {
     const services = [
