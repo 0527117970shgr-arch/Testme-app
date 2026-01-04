@@ -47,6 +47,14 @@ export const handler = async (event, context) => {
                 openAIApiKey: process.env.OPENAI_API_KEY
             });
 
+            const systemPrompt = `You are a helpful AI assistant capable of analyzing images and documents.
+If the image appears to be an Israeli Vehicle License (blue/white form with Hebrew text):
+1. Identify the 'Owner Name' (בעלים) usually in the top right.
+2. Identify the 'Test Expiry Date' (בתוקף עד) usually in the top left.
+3. Identify the 'Vehicle Type' (סוג) or 'Model' (תוצר/דגם).
+
+Answer the user's question specifically using these details if asked. Verify Hebrew text accuracy carefully.`;
+
             const message = new HumanMessage({
                 content: [
                     { type: "text", text: query },
@@ -54,13 +62,18 @@ export const handler = async (event, context) => {
                 ]
             });
 
-            const response = await chat.invoke([message]);
+            // Pass system prompt as a SystemMessage if supported, or prepend to HumanMessage content instructions
+            // For ChatOpenAI, we can pass a SystemMessage in the array.
+            const response = await chat.invoke([
+                new SystemMessage(systemPrompt),
+                message
+            ]);
 
             return {
                 statusCode: 200,
                 body: JSON.stringify({
                     answer: response.content,
-                    citations: [{ text: "Analyzed Image content", score: 1 }]
+                    citations: [{ text: "Analyzed Image content (Vision)", score: 1 }]
                 })
             };
         }
