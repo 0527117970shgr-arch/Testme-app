@@ -166,6 +166,8 @@ const AdminDashboard = () => {
                                 <th style={{ padding: '15px' }}>לקוח</th>
                                 <th style={{ padding: '15px' }}>פרטי קשר</th>
                                 <th style={{ padding: '15px' }}>רכב וכתובת</th>
+                                <th style={{ padding: '15px' }}>תוקף טסט</th>
+                                <th style={{ padding: '15px' }}>תזכורת SMS</th>
                                 <th style={{ padding: '15px' }}>שירות</th>
                                 <th style={{ padding: '15px' }}>סטטוס</th>
                             </tr>
@@ -203,12 +205,22 @@ const AdminDashboard = () => {
                                         <div>{booking.carType}</div>
                                         <div style={{ fontSize: '0.9em', color: '#666' }}>{booking.address}</div>
                                         {booking.licensePlate && <div style={{ fontWeight: 'bold' }}>{booking.licensePlate}</div>}
-                                        {booking.licenseExpiry && <div style={{ fontSize: '0.9em', color: '#d32f2f' }}>תוקף: {booking.licenseExpiry}</div>}
-                                        {booking.testDate && !booking.licenseExpiry && <div style={{ fontSize: '0.9em', color: '#2e7d32' }}>תוקף משוער: {booking.testDate}</div>}
                                         {booking.licenseImageUrl && (
                                             <a href={booking.licenseImageUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: 'blue', textDecoration: 'underline' }}>
                                                 📷 הצג רישיון
                                             </a>
+                                        )}
+                                    </td>
+                                    <td style={{ padding: '15px', color: '#d32f2f', fontWeight: 'bold' }}>
+                                        {booking.licenseExpiry || booking.testDate || '-'}
+                                    </td>
+                                    <td style={{ padding: '15px' }}>
+                                        {booking.reminderSent ? (
+                                            <span style={{ color: 'green', fontWeight: 'bold' }}>✅ נשלח</span>
+                                        ) : (
+                                            booking.reminderQueueDate ? (
+                                                <span style={{ color: 'orange' }}>⏳ מתוזמן ל-{booking.reminderQueueDate}</span>
+                                            ) : '-'
                                         )}
                                     </td>
                                     <td style={{ padding: '15px' }}>{booking.service}<br />{booking.date} {booking.time}</td>
