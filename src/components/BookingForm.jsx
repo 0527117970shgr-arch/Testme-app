@@ -208,8 +208,12 @@ const BookingForm = () => {
 
             await addDoc(collection(db, "bookings"), docData);
 
-            // Send SMS to Admin
-            await sendSmsToAdmin(finalData);
+            // Send SMS to Admin (Fire and forget-ish, or at least don't block success)
+            try {
+                await sendSmsToAdmin(finalData);
+            } catch (smsError) {
+                console.error("SMS Warning: Failed to send notification, but order is saved.", smsError);
+            }
 
             setStatus('success');
             setSubmittedData(docData);
