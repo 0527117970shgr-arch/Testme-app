@@ -14,7 +14,7 @@ const Process = () => {
             }}>
                 <div style={{ flex: '1 1 250px' }}>
                     <div style={{ height: '150px', marginBottom: '1rem' }}>
-                        <img src="https://images.unsplash.com/photo-1560252829-804f1aedf1be?auto=format&fit=crop&w=400&q=80" alt="Pickup" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
+                        <img src="https://images.unsplash.com/photo-1625902353386-8178c7755ba9?auto=format&fit=crop&w=400&q=80" alt="Pickup" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '8px' }} />
                     </div>
                     <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--color-primary)', marginBottom: '0.5rem' }}>1</div>
                     <h3>איסוף מהבית</h3>
