@@ -29,15 +29,15 @@ export const handler = async (event) => {
         const prompt = `
         Analyze this image of an Israeli vehicle license (Rishayon Rechev).
         Extract these SPECIFIC fields in JSON format:
-        1. "licensePlate" - The vehicle number (XXX-XX-XXX or similar).
-        2. "carType" - The car model/make (e.g., Mazda 3, Toyota Corolla). Look for "סוג" or "תוצר".
+        1. "licensePlate" - The vehicle number (XXX-XX-XXX).
+        2. "carType" - The car model/make (e.g., Mazda 3).
         3. "licenseExpiry" - The "Valid Until / בתוקף עד" date (DD/MM/YYYY).
-        4. "name" - The Owner Name (בעלים). Usually at the top right.
+        4. "name" - The Owner Name (בעלים). Usually at the top right, under "בעלים ושמן" or similar.
 
         CRITICAL SCANNING INSTRUCTIONS:
-        - Owner Name (בעלים): This is CRITICAL. Look for Hebrew text under "בעלים" matching a person's name (e.g., "וייסמן מרדכי").
-        - Expiry (בתוקף עד): Look specifically for the date next to "בתוקף עד". If you see 2026/2025, that is it.
-        - Car Type (דגם/סוג): Look for the model name (e.g. Mazda 3).
+        - Owner Name (בעלים): Look for the name of the person or company. It is usually the first line or near "בעלים". Example: "ישראל ישראלי" or "חברה בעמ".
+        - License Plate (מספר רכב): Look for the main license plate number (yellow box or clear digits).
+        - Expiry (בתוקף עד): The date the license is valid until.
 
         Return ONLY raw JSON.
         Example: { "licensePlate": "123-45-678", "carType": "Mazda 3", "licenseExpiry": "01/01/2025", "name": "ישראל ישראלי" }
