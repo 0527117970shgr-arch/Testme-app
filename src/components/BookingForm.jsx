@@ -28,13 +28,34 @@ const BookingForm = () => {
     // Image pre-processing handled by Server now for stability
 
 
-    // Helper to convert file to Base64
-    const convertFileToBase64 = (file) => {
+    // Helper to compress image before sending (Avoids Netlify 6MB body limit)
+    const compressImage = (file) => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result.split(',')[1]); // remove data:image/jpeg;base64,
-            reader.onerror = error => reject(error);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1024; // Resize to max 1024px width
+                    const scaleSize = MAX_WIDTH / img.width;
+                    const width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
+                    const height = (img.width > MAX_WIDTH) ? (img.height * scaleSize) : img.height;
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Compress to JPEG 0.7 quality
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    resolve(dataUrl.split(',')[1]); // Remove prefix
+                };
+                img.onerror = (err) => reject(err);
+            };
+            reader.onerror = (err) => reject(err);
         });
     };
 
@@ -47,9 +68,10 @@ const BookingForm = () => {
         setOcrProgress(10);
 
         try {
-            // 1. Convert to Base64 (No Upload yet)
-            console.log("Converting image to Base64...");
-            const base64Image = await convertFileToBase64(file);
+            // 1. Compress & Convert to Base64 (No Upload yet)
+            console.log("Compressing image...");
+            const base64Image = await compressImage(file);
+            console.log("Compression complete. Sending to OCR...");
             setOcrProgress(30);
 
             // 2. Call Google Vision via Netlify Function (Pass Base64)
