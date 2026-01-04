@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 
 const AdminDashboard = () => {
+    console.log("AdminDashboard Component Mounted");
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -104,7 +105,7 @@ const AdminDashboard = () => {
         try {
             // In a real app we might have a dedicated collection. using 'settings/sms' doc
             const docRef = doc(db, "settings", "sms");
-            const docSnap = await import('firebase/firestore').then(m => m.getDoc(docRef));
+            const docSnap = await getDoc(docRef);
 
             if (docSnap.exists()) {
                 setSmsTemplate(docSnap.data().template);
@@ -116,7 +117,7 @@ const AdminDashboard = () => {
 
     const saveSettings = async () => {
         try {
-            await import('firebase/firestore').then(m => m.setDoc(doc(db, "settings", "sms"), { template: smsTemplate }));
+            await setDoc(doc(db, "settings", "sms"), { template: smsTemplate });
             alert("הגדרות נשמרו בהצלחה!");
             setShowSettings(false);
         } catch (error) {
