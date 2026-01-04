@@ -43,7 +43,7 @@ export const translations = {
                 address: 'כתובת איסוף *',
                 carType: 'סוג רכב (יצרן ודגם) *',
                 licensePlate: 'מספר רכב',
-                licenseExpiry: 'תוקף רישיון (לצורך תזכורת):',
+                licenseExpiry: 'תוקף רישיון:',
                 service: 'שירות',
                 date: 'תאריך מועדף:',
                 time: 'שעה מועדפת:'
