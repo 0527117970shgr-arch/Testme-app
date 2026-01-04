@@ -26,15 +26,20 @@ export const handler = async (event) => {
         });
 
         // Prompt for GPT-4 Vision
+        // Prompt for GPT-4 Vision
         const prompt = `
         Analyze this image of an Israeli vehicle license (Rishayon Rechev).
-        Extract the following fields in JSON format with 100% precision:
-        - licensePlate: The license plate number (digits, maybe hyphens).
-        - model: The specific Vehicle Model (e.g., Toyota Corolla, Mazda 3).
-        - licenseExpiry: The license expiry date (VALID UNTIL / בתוקף עד) in DD/MM/YYYY format.
+        Extract these SPECIFIC fields in JSON format:
+        1. "licensePlate" - The vehicle number (XXX-XX-XXX or similar).
+        2. "model" - The car model (Toyota Corolla, etc).
+        3. "licenseExpiry" - The "Valid Until / בתוקף עד" date (DD/MM/YYYY).
 
-        Return ONLY raw JSON, no markdown formatting.
-        Example: { "licensePlate": "123-45-678", "model": "Toyota Corolla", "licenseExpiry": "01/01/2025" }
+        CRITICAL: 
+        - If you see a date valid until 2024/2025/2026, that is the expiry.
+        - Look for "תוקף הרישיון" or "בתוקף עד".
+
+        Return ONLY raw JSON.
+        Example: { "licensePlate": "123-45-678", "model": "Mazda 3", "licenseExpiry": "01/01/2025" }
         `;
 
         const response = await openai.chat.completions.create({

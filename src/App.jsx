@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import Services from './components/Services';
+import Process from './components/Process';
+import Contact from './components/Contact';
 import BookingForm from './components/BookingForm';
 import AdminDashboard from './components/AdminDashboard';
 import DocumentChat from './components/DocumentChat';
@@ -23,11 +25,17 @@ const App = () => {
                 <div id="services">
                   <Services />
                 </div>
+                <div id="process">
+                  <Process />
+                </div>
                 <div id="ai-chat">
                   <DocumentChat isOpen={showChat} onToggle={() => setShowChat(!showChat)} />
                 </div>
                 <div id="booking">
                   <BookingForm />
+                </div>
+                <div id="contact">
+                  <Contact />
                 </div>
               </>
             } />
