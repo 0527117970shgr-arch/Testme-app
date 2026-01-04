@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { db, storage } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+// import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 
 const BookingForm = () => {
@@ -92,17 +92,18 @@ const BookingForm = () => {
             console.log("OCR Result:", result);
 
             // 3. Extraction Logic
-            const { licensePlate, testDate } = result.extracted || {};
+            const { licensePlate, testDate, name } = result.extracted || {};
 
             setFormData(prev => ({
                 ...prev,
                 licensePlate: licensePlate || prev.licensePlate,
-                testDate: testDate || prev.testDate
+                testDate: testDate || prev.testDate,
+                name: name || prev.name
             }));
 
             // Alert user
-            if (licensePlate || testDate) {
-                alert(`סריקה הושלמה! \nזיהינו מספר רכב: ${licensePlate || 'לא זוהה'} \nתוקף: ${testDate || 'לא זוהה'}`);
+            if (licensePlate || testDate || name) {
+                alert(`סריקה הושלמה! \nזיהינו: \nמספר רכב: ${licensePlate || 'לא זוהה'} \nשם: ${name || 'לא זוהה'} \nתוקף: ${testDate || 'לא זוהה'}`);
             } else {
                 alert("הסריקה הושלמה, אך לא זיהינו פרטים בבירור. אנא מלא ידנית.");
             }
@@ -156,21 +157,13 @@ const BookingForm = () => {
         setStatus('submitting');
 
         try {
-            // Robust Image Logic:
-            // If we have a URL from OCR, use it.
-            // If not, but we have a file (maybe user skipped OCR or it failed), try to upload now.
-            let finalImageUrl = finalData.licenseImageUrl || '';
+            // 1. Skip Image Upload (User request to bypass CORS)
+            // We proceed with the data we have.
+            let finalImageUrl = '';
 
-            if (!finalImageUrl && licenseImage) {
-                try {
-                    console.log("Uploading image during submit...");
-                    const storageRef = ref(storage, `licenses/${Date.now()}_${licenseImage.name}`);
-                    await uploadBytes(storageRef, licenseImage);
-                    finalImageUrl = await getDownloadURL(storageRef);
-                } catch (uploadEffect) {
-                    console.error("Failed to upload image during submit. Proceeding without image.", uploadEffect);
-                    // Proceed anyway!
-                }
+            // If we wanted to upload, we would do it here, but we are disabling it.
+            if (licenseImage) {
+                console.log("Skipping upload to avoid CORS. Proceeding with text only.");
             }
 
             const docData = {
