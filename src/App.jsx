@@ -1,32 +1,45 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
-import Home from './components/Home';
+import Hero from './components/Hero';
+import Services from './components/Services';
 import BookingForm from './components/BookingForm';
 import AdminDashboard from './components/AdminDashboard';
-import FloatingWhatsApp from './components/FloatingWhatsApp';
+import DocumentChat from './components/DocumentChat';
+import { LanguageProvider } from './context/LanguageContext';
 
-function App() {
+const App = () => {
   return (
-    <Router>
-      <div className="app-container">
-        <Header />
-        <main style={{ minHeight: '80vh' }}>
+    <LanguageProvider>
+      <Router>
+        <div className="App">
           <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/booking" element={<BookingForm />} />
-            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/" element={
+              <>
+                <Header />
+                <Hero />
+                <div id="services">
+                  <Services />
+                </div>
+                <div id="ai-chat">
+                  <DocumentChat />
+                </div>
+                <div id="booking">
+                  <BookingForm />
+                </div>
+              </>
+            } />
+            <Route path="/admin" element={
+              <>
+                <Header />
+                <AdminDashboard />
+              </>
+            } />
           </Routes>
-        </main>
-        {/* Contact/Footer is inside Home, but maybe we want a global footer? 
-            For now, keeping it in Home as per original design, 
-            or we can move it here if we want it on all pages. 
-            Let's keep it in Home for now to focus the booking page. 
-        */}
-        <FloatingWhatsApp />
-      </div>
-    </Router>
-  )
-}
+        </div>
+      </Router>
+    </LanguageProvider>
+  );
+};
 
-export default App
+export default App;

@@ -1,74 +1,37 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useLanguage } from '../context/LanguageContext';
 
 const Hero = () => {
+    const { t } = useLanguage();
+
     return (
         <section style={{
-            textAlign: 'center',
-            padding: '4rem 2rem',
-            backgroundColor: 'var(--color-secondary)',
-            color: 'var(--color-white)',
-            minHeight: '60vh',
+            height: '80vh',
+            backgroundImage: 'linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
-            position: 'relative',
-            overflow: 'hidden'
+            color: 'var(--color-white)',
+            textAlign: 'center',
+            padding: '0 5%'
         }}>
-            <h1 className="fade-in" style={{
-                fontSize: '3.5rem',
-                marginBottom: '1rem',
-                color: 'var(--color-primary)',
-                animationDelay: '0.1s'
+            <h1 className="fade-in" style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>{t('hero.title')}</h1>
+            <p className="fade-in" style={{ fontSize: '1.5rem', marginBottom: '2rem', maxWidth: '800px' }}>{t('hero.subtitle')}</p>
+            <a href="#booking" className="fade-in" style={{
+                backgroundColor: 'var(--color-primary)',
+                color: 'var(--color-secondary)',
+                padding: '1rem 2rem',
+                borderRadius: '50px',
+                fontSize: '1.2rem',
+                fontWeight: 'bold',
+                textDecoration: 'none',
+                transition: 'transform 0.3s'
             }}>
-                שירותי רכב – עד הבית!
-            </h1>
-            <p className="fade-in" style={{
-                fontSize: '1.5rem',
-                maxWidth: '700px',
-                margin: '0 auto 2rem',
-                opacity: '0',
-                animationFillMode: 'forwards',
-                animationDelay: '0.4s'
-            }}>
-                חוסכים לך את כאב הראש ובזבוז הזמן. <br />
-                אנחנו נאסוף את הרכב לטסט, טיפול או תיקון – ונחזיר אותו עד אליך.
-            </p>
-
-            <div className="fade-in" style={{
-                display: 'flex',
-                gap: '1rem',
-                flexWrap: 'wrap',
-                justifyContent: 'center',
-                opacity: '0',
-                animationFillMode: 'forwards',
-                animationDelay: '0.7s'
-            }}>
-                <Link to="/booking" style={{
-                    backgroundColor: 'var(--color-primary)',
-                    color: 'var(--color-secondary)',
-                    padding: '1rem 2.5rem',
-                    borderRadius: '50px',
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold',
-                    transition: 'transform 0.2s',
-                    display: 'inline-block',
-                    textDecoration: 'none'
-                }}>
-                    הזמן שירות עכשיו
-                </Link>
-                <a href="tel:02-6404000" style={{
-                    border: '2px solid var(--color-primary)',
-                    color: 'var(--color-primary)',
-                    padding: '1rem 2.5rem',
-                    borderRadius: '50px',
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold'
-                }}>
-                    02-6404000 📞
-                </a>
-            </div>
+                {t('hero.cta')}
+            </a>
         </section>
     );
 };

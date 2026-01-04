@@ -1,9 +1,70 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, updateDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { useLanguage } from '../context/LanguageContext';
 
 const AdminDashboard = () => {
     console.log("AdminDashboard Component Mounted");
+    const { language } = useLanguage(); // Using language to determine text direction/labels if needed
+
+    // Simple translation map for Admin specific terms not in the main dictionary yet, 
+    // or we can add them to translations.js. For speed, I'll put hebrew/english here or standard texts.
+    // Actually, let's keep it simple. The Admin is likely Hebrew, but we support LTR.
+    // I will translate the main headers to English if language is 'en'.
+
+    const adminTranslations = {
+        he: {
+            title: 'לוח בקרה - ניהול הזמנות',
+            settings: '⚙️ הגדרות תזכורות',
+            refresh: 'רענן נתונים 🔄',
+            loginTitle: 'כניסה למנהלים',
+            loginBtn: 'כנס',
+            logout: 'התנתק',
+            table: {
+                date: 'תאריך הזמנה',
+                client: 'לקוח',
+                contact: 'פרטי קשר',
+                car: 'רכב וכתובת',
+                expiry: 'תוקף טסט',
+                sms: 'תזכורת SMS',
+                service: 'שירות',
+                status: 'סטטוס'
+            },
+            status: {
+                new: 'חדש',
+                in_progress: 'בטיפול',
+                completed: 'הושלם',
+                cancelled: 'בוטל'
+            }
+        },
+        en: {
+            title: 'Admin Dashboard - Order Management',
+            settings: '⚙️ Reminder Settings',
+            refresh: 'Refresh Data 🔄',
+            loginTitle: 'Admin Login',
+            loginBtn: 'Login',
+            logout: 'Logout',
+            table: {
+                date: 'Order Date',
+                client: 'Client',
+                contact: 'Contact Info',
+                car: 'Car & Address',
+                expiry: 'License Expiry',
+                sms: 'SMS Reminder',
+                service: 'Service',
+                status: 'Status'
+            },
+            status: {
+                new: 'New',
+                in_progress: 'In Progress',
+                completed: 'Completed',
+                cancelled: 'Cancelled'
+            }
+        }
+    };
+
+    const tAdmin = adminTranslations[language] || adminTranslations.he;
+
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -45,7 +106,7 @@ const AdminDashboard = () => {
         if (password === 'admin123') {
             setIsAuthenticated(true);
         } else {
-            alert('סיסמה שגויה');
+            alert('Incorrect password');
         }
     };
 
@@ -56,7 +117,7 @@ const AdminDashboard = () => {
             setBookings(bookings.map(b => b.id === id ? { ...b, status: newStatus } : b));
         } catch (error) {
             console.error("Error updating status: ", error);
-            alert("שגיאה בעדכון הסטטוס");
+            alert("Error updating status");
         }
     };
 
@@ -73,23 +134,23 @@ const AdminDashboard = () => {
     // Helper to format WhatsApp link
     const getWhatsAppLink = (booking) => {
         const phone = booking.phone.replace(/\D/g, '').replace(/^0/, '972');
-        const text = `שלום ${booking.name}, אנחנו מטפלים בהזמנתך ל${booking.service} מתאריך ${booking.date}. הרכב בטיפול!`;
+        const text = `Hi ${booking.name}, regarding your order for ${booking.service}...`;
         return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
     };
 
     if (!isAuthenticated) {
         return (
             <div style={{ padding: '2rem', textAlign: 'center' }}>
-                <h2>כניסה למנהלים</h2>
+                <h2>{tAdmin.loginTitle}</h2>
                 <form onSubmit={handleLogin} style={{ marginTop: '1rem' }}>
                     <input
                         type="password"
-                        placeholder="סיסמה"
+                        placeholder="Password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         style={{ padding: '10px', fontSize: '1rem' }}
                     />
-                    <button type="submit" style={{ padding: '10px 20px', marginLeft: '10px', fontSize: '1rem', backgroundColor: 'var(--color-primary)', border: 'none', cursor: 'pointer' }}>כנס</button>
+                    <button type="submit" style={{ padding: '10px 20px', marginLeft: '10px', fontSize: '1rem', backgroundColor: 'var(--color-primary)', border: 'none', cursor: 'pointer' }}>{tAdmin.loginBtn}</button>
                 </form>
             </div>
         );
@@ -115,23 +176,23 @@ const AdminDashboard = () => {
     const saveSettings = async () => {
         try {
             await setDoc(doc(db, "settings", "sms"), { template: smsTemplate });
-            alert("הגדרות נשמרו בהצלחה!");
+            alert("Settings saved!");
             setShowSettings(false);
         } catch (error) {
             console.error("Error saving settings: ", error);
-            alert("שגיאה בשמירת הגדרות");
+            alert("Error saving settings");
         }
     };
 
     return (
         <div style={{ padding: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h2>לוח בקרה - ניהול הזמנות</h2>
+                <h2>{tAdmin.title}</h2>
                 <div>
                     <button onClick={() => setShowSettings(!showSettings)} style={{ padding: '5px 15px', marginLeft: '10px', cursor: 'pointer', backgroundColor: '#607d8b', color: 'white', border: 'none', borderRadius: '4px' }}>
-                        ⚙️ הגדרות תזכורות
+                        {tAdmin.settings}
                     </button>
-                    <button onClick={fetchBookings} style={{ padding: '5px 15px', cursor: 'pointer' }}>רענן נתונים 🔄</button>
+                    <button onClick={fetchBookings} style={{ padding: '5px 15px', cursor: 'pointer' }}>{tAdmin.refresh}</button>
                 </div>
             </div>
 
@@ -140,33 +201,33 @@ const AdminDashboard = () => {
                 <div className="fade-in" style={{
                     marginBottom: '20px', padding: '20px', border: '1px solid #ddd', borderRadius: '8px', backgroundColor: '#f9f9f9'
                 }}>
-                    <h3>עריכת תבנית SMS לתזכורת</h3>
-                    <p style={{ fontSize: '0.9rem', color: '#666' }}>השתמש בתגיות: [Customer Name], [License Plate]</p>
+                    <h3>Edit SMS Template</h3>
+                    <p style={{ fontSize: '0.9rem', color: '#666' }}>Tags: [Customer Name], [License Plate]</p>
                     <textarea
                         value={smsTemplate}
                         onChange={(e) => setSmsTemplate(e.target.value)}
                         style={{ width: '100%', minHeight: '80px', padding: '10px', marginTop: '10px', fontSize: '1rem' }}
                     />
                     <div style={{ marginTop: '10px', textAlign: 'left' }}>
-                        <button onClick={saveSettings} style={{ padding: '8px 20px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>שמור הגדרות</button>
-                        <button onClick={() => setShowSettings(false)} style={{ padding: '8px 20px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '10px' }}>סגור</button>
+                        <button onClick={saveSettings} style={{ padding: '8px 20px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Save</button>
+                        <button onClick={() => setShowSettings(false)} style={{ padding: '8px 20px', backgroundColor: '#f44336', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginLeft: '10px' }}>Close</button>
                     </div>
                 </div>
             )}
 
-            {loading ? <p>טוען נתונים...</p> : (
+            {loading ? <p>Loading data...</p> : (
                 <div style={{ overflowX: 'auto', boxShadow: '0 0 10px rgba(0,0,0,0.1)', borderRadius: '8px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', minWidth: '900px', backgroundColor: 'white' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: language === 'he' ? 'right' : 'left', minWidth: '900px', backgroundColor: 'white' }}>
                         <thead>
                             <tr style={{ backgroundColor: 'var(--color-secondary)', color: 'var(--color-white)' }}>
-                                <th style={{ padding: '15px' }}>תאריך הזמנה</th>
-                                <th style={{ padding: '15px' }}>לקוח</th>
-                                <th style={{ padding: '15px' }}>פרטי קשר</th>
-                                <th style={{ padding: '15px' }}>רכב וכתובת</th>
-                                <th style={{ padding: '15px' }}>תוקף טסט</th>
-                                <th style={{ padding: '15px' }}>תזכורת SMS</th>
-                                <th style={{ padding: '15px' }}>שירות</th>
-                                <th style={{ padding: '15px' }}>סטטוס</th>
+                                <th style={{ padding: '15px' }}>{tAdmin.table.date}</th>
+                                <th style={{ padding: '15px' }}>{tAdmin.table.client}</th>
+                                <th style={{ padding: '15px' }}>{tAdmin.table.contact}</th>
+                                <th style={{ padding: '15px' }}>{tAdmin.table.car}</th>
+                                <th style={{ padding: '15px' }}>{tAdmin.table.expiry}</th>
+                                <th style={{ padding: '15px' }}>{tAdmin.table.sms}</th>
+                                <th style={{ padding: '15px' }}>{tAdmin.table.service}</th>
+                                <th style={{ padding: '15px' }}>{tAdmin.table.status}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -204,7 +265,7 @@ const AdminDashboard = () => {
                                         {booking.licensePlate && <div style={{ fontWeight: 'bold' }}>{booking.licensePlate}</div>}
                                         {booking.licenseImageUrl && (
                                             <a href={booking.licenseImageUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: 'blue', textDecoration: 'underline' }}>
-                                                📷 הצג רישיון
+                                                📷 License
                                             </a>
                                         )}
                                     </td>
@@ -213,10 +274,10 @@ const AdminDashboard = () => {
                                     </td>
                                     <td style={{ padding: '15px' }}>
                                         {booking.reminderSent ? (
-                                            <span style={{ color: 'green', fontWeight: 'bold' }}>✅ נשלח</span>
+                                            <span style={{ color: 'green', fontWeight: 'bold' }}>✅ Sent</span>
                                         ) : (
                                             booking.reminderQueueDate ? (
-                                                <span style={{ color: 'orange' }}>⏳ מתוזמן ל-{booking.reminderQueueDate}</span>
+                                                <span style={{ color: 'orange' }}>⏳ {booking.reminderQueueDate}</span>
                                             ) : '-'
                                         )}
                                     </td>
@@ -235,10 +296,10 @@ const AdminDashboard = () => {
                                                 cursor: 'pointer'
                                             }}
                                         >
-                                            <option value="חדש" style={{ color: 'black' }}>חדש</option>
-                                            <option value="בטיפול" style={{ color: 'black' }}>בטיפול</option>
-                                            <option value="הושלם" style={{ color: 'black' }}>הושלם</option>
-                                            <option value="בוטל" style={{ color: 'black' }}>בוטל</option>
+                                            <option value="חדש" style={{ color: 'black' }}>{tAdmin.status.new}</option>
+                                            <option value="בטיפול" style={{ color: 'black' }}>{tAdmin.status.in_progress}</option>
+                                            <option value="הושלם" style={{ color: 'black' }}>{tAdmin.status.completed}</option>
+                                            <option value="בוטל" style={{ color: 'black' }}>{tAdmin.status.cancelled}</option>
                                         </select>
                                     </td>
                                 </tr>

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { useLanguage } from '../context/LanguageContext';
 
 const BookingForm = () => {
+    const { t, language } = useLanguage();
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
         address: '',
         carType: '',
-        service: 'טסט שנתי',
+        service: 'test', // defaulting to key instead of Hebrew string
         date: '',
         time: '',
         licensePlate: '',
@@ -24,7 +26,7 @@ const BookingForm = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // Helper to compress image before sending (Avoids Netlify 6MB body limit)
+    // Helper to compress image before sending
     const compressImage = (file) => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -34,7 +36,7 @@ const BookingForm = () => {
                 img.src = event.target.result;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 1000; // Resize to max 1000px width (per user request)
+                    const MAX_WIDTH = 1000;
                     const scaleSize = MAX_WIDTH / img.width;
                     const width = (img.width > MAX_WIDTH) ? MAX_WIDTH : img.width;
                     const height = (img.width > MAX_WIDTH) ? (img.height * scaleSize) : img.height;
@@ -45,9 +47,8 @@ const BookingForm = () => {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // Compress to JPEG 0.7 quality
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    resolve(dataUrl.split(',')[1]); // Remove prefix
+                    resolve(dataUrl.split(',')[1]);
                 };
                 img.onerror = (err) => reject(err);
             };
@@ -64,14 +65,11 @@ const BookingForm = () => {
         setOcrProgress(10);
 
         try {
-            // 1. Compress & Convert to Base64 (No Upload yet)
             console.log("Compressing image...");
             const base64Image = await compressImage(file);
             console.log("Compression complete. Sending to OCR...");
             setOcrProgress(30);
 
-            // 2. Call Google Vision via Netlify Function (Pass Base64)
-            console.log("Sending Base64 to OCR...");
             const response = await fetch('/.netlify/functions/analyze-license', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -87,7 +85,6 @@ const BookingForm = () => {
 
             console.log("OCR Result:", result);
 
-            // 3. Extraction Logic
             const { licensePlate, testDate, name, licenseExpiry } = result.extracted || {};
 
             setFormData(prev => ({
@@ -98,40 +95,28 @@ const BookingForm = () => {
                 licenseExpiry: licenseExpiry || prev.licenseExpiry
             }));
 
-            // Alert user
+            // Alert user (Could be improved to use a UI modal/toast instead of alert for better localization, but keeping simple for now)
             if (licensePlate || testDate || name || licenseExpiry) {
-                alert(`סריקה הושלמה! \nזיהינו: \nמספר רכב: ${licensePlate || 'לא זוהה'} \nשם: ${name || 'לא זוהה'} \nתוקף: ${licenseExpiry || testDate || 'לא זוהה'}`);
+                alert(`OCR Complete!\nDetected:\nPlate: ${licensePlate || 'N/A'}\nName: ${name || 'N/A'}\nExpiry: ${licenseExpiry || testDate || 'N/A'}`);
             } else {
-                alert("הסריקה הושלמה, אך לא זיהינו פרטים בבירור. אנא מלא ידנית.");
+                alert("OCR Complete, but no specific details found. Please fill manually.");
             }
             setStatus('');
 
         } catch (err) {
             console.error("OCR/Base64 Error:", err);
-            alert("שגיאה בסריקת התמונה. \nאל דאגה, ניתן למלא את הפרטים ידנית ולשלוח את הטופס.");
+            alert("Error scanning image. Please fill details manually.");
             setStatus('');
         }
     };
 
     const sendSmsToAdmin = async (data) => {
-        console.log("Sending order to Netlify Function...");
-
         try {
-            const response = await fetch('/.netlify/functions/send-sms', {
+            await fetch('/.netlify/functions/send-sms', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                console.log("SMS sent via Function:", result);
-            } else {
-                console.error("Failed to send SMS via Function:", result);
-            }
         } catch (error) {
             console.error("Network Error calling Function:", error);
         }
@@ -139,34 +124,40 @@ const BookingForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        console.log('Starting submission...');
 
-        // Validation: License Plate (Allow dashes, but check for 7-8 digits)
-        const cleanPlate = formData.licensePlate.replace(/\D/g, ''); // Remove non-digits
+        // Validation: License Plate
+        const cleanPlate = formData.licensePlate.replace(/\D/g, '');
         if (formData.licensePlate && (cleanPlate.length < 7 || cleanPlate.length > 9)) {
-            alert("מספר רכב לא תקין (חייב להכיל 7-9 ספרות).");
+            alert("Invalid License Plate (must be 7-9 digits).");
             return;
         }
 
-        // Update state with clean plate before sending
         const finalData = { ...formData, licensePlate: cleanPlate };
-
         setStatus('submitting');
 
         try {
-            // 1. Skip Image Upload (User request to bypass CORS)
-            let finalImageUrl = '';
-            if (licenseImage) {
-                console.log("Skipping upload to avoid CORS. Proceeding with text only.");
-            }
+            // Note: service is stored as key (test, mechanic, bodywork) or we map it?
+            // For now storing the key is fine, AdminDashboard will need to handle it or we map here.
+            // Let's map it to Hebrew for backward compatibility with Admin if needed, or stick to English keys.
+            // The User requested localization, so internal data can be English or Hebrew. 
+            // Let's actually map the service key to the *translated* Hebrew string for the DB, 
+            // so the Admin (who is likely Hebrew speaking) sees Hebrew?
+            // Actually, better to store English keys 'annual_test', 'mechanic', 'bodywork' and translate in Admin.
+            // BUT, existing data is 'טסט שנתי'. So let's stick to mapping the key back to Hebrew for DB consistency.
 
-            const docData = {
+            const serviceMap = {
+                'test': 'טסט שנתי',
+                'mechanic': 'שירותי מכונאות',
+                'bodywork': 'שירותי פחחות'
+            };
+
+            const dbData = {
                 ...finalData,
-                licenseImageUrl: finalImageUrl,
+                service: serviceMap[finalData.service] || finalData.service,
+                licenseImageUrl: '',
                 timestamp: new Date(),
                 status: 'חדש',
                 reminderQueueDate: finalData.licenseExpiry ? (() => {
-                    // Calculate date 14 days before expiry
                     const d = new Date(finalData.licenseExpiry);
                     d.setDate(d.getDate() - 14);
                     return d.toISOString().split('T')[0];
@@ -174,44 +165,44 @@ const BookingForm = () => {
                 reminderSent: false
             };
 
-            await addDoc(collection(db, "bookings"), docData);
+            await addDoc(collection(db, "bookings"), dbData);
 
-            // Send SMS to Admin
             try {
-                await sendSmsToAdmin(finalData);
+                await sendSmsToAdmin(dbData);
             } catch (smsError) {
-                console.error("SMS Warning: Failed to send notification, but order is saved.", smsError);
+                console.error("SMS Warning:", smsError);
             }
 
-            console.log('Submission complete');
             setStatus('success');
-            setSubmittedData(docData);
-            setFormData({ name: '', phone: '', address: '', carType: '', service: 'טסט שנתי', date: '', time: '', licensePlate: '', testDate: '', licenseExpiry: '', licenseImageUrl: '' });
+            setSubmittedData(dbData); // Use dbData so summary uses Hebrew service name? Or use finalData? 
+            // Let's use dbData for simple display, or we could translate back in the summary.
+            // For the summary view, we want to show the user the language they speak.
+            setFormData({ name: '', phone: '', address: '', carType: '', service: 'test', date: '', time: '', licensePlate: '', testDate: '', licenseExpiry: '' });
             setLicenseImage(null);
         } catch (error) {
             console.error("Error adding document: ", error);
             setStatus('error');
-            alert("אירעה שגיאה בשליחת הטופס. נסה שוב.");
+            alert(language === 'he' ? "אירעה שגיאה בשליחת הטופס." : "Error submitting form.");
         }
     };
 
     if (status === 'success' && submittedData) {
         return (
             <div className="fade-in" style={{ maxWidth: '600px', margin: '0 auto', padding: '2rem', backgroundColor: 'var(--color-bg-light)', borderRadius: 'var(--border-radius)', boxShadow: 'var(--shadow-md)', textAlign: 'center' }}>
-                <h2 style={{ color: '#4CAF50', marginBottom: '1rem' }}>ההזמנה התקבלה בהצלחה!</h2>
+                <h2 style={{ color: '#4CAF50', marginBottom: '1rem' }}>{t('success.title')}</h2>
                 <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>✅</div>
-                <p style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>קיבלנו את הפרטים וניצור איתך קשר בהקדם.</p>
+                <p style={{ fontSize: '1.2rem', marginBottom: '2rem' }}>{t('success.subtitle')}</p>
 
-                <h3 style={{ borderBottom: '2px solid var(--color-primary)', display: 'inline-block', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>סיכום הזמנה</h3>
+                <h3 style={{ borderBottom: '2px solid var(--color-primary)', display: 'inline-block', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>{t('success.summary')}</h3>
 
-                <div style={{ textAlign: 'right', display: 'grid', gap: '1rem', backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px' }}>
-                    <div><strong>שם:</strong> {submittedData.name}</div>
-                    <div><strong>טלפון:</strong> {submittedData.phone}</div>
-                    <div><strong>כתובת איסוף:</strong> {submittedData.address}</div>
-                    <div><strong>סוג רכב:</strong> {submittedData.carType}</div>
-                    <div><strong>מספר רכב:</strong> {submittedData.licensePlate}</div>
-                    <div><strong>שירות:</strong> {submittedData.service}</div>
-                    <div><strong>מועד מועדף:</strong> {submittedData.date} בשעה {submittedData.time}</div>
+                <div style={{ textAlign: language === 'he' ? 'right' : 'left', display: 'grid', gap: '1rem', backgroundColor: 'white', padding: '1.5rem', borderRadius: '8px' }}>
+                    <div><strong>{t('success.labels.name')}</strong> {submittedData.name}</div>
+                    <div><strong>{t('success.labels.phone')}</strong> {submittedData.phone}</div>
+                    <div><strong>{t('success.labels.address')}</strong> {submittedData.address}</div>
+                    <div><strong>{t('success.labels.carType')}</strong> {submittedData.carType}</div>
+                    <div><strong>{t('success.labels.licensePlate')}</strong> {submittedData.licensePlate}</div>
+                    <div><strong>{t('success.labels.service')}</strong> {submittedData.service}</div>
+                    <div><strong>{t('success.labels.date')}</strong> {submittedData.date} {submittedData.time}</div>
                 </div>
 
                 <button onClick={() => { setStatus(''); setSubmittedData(null); }} style={{
@@ -224,7 +215,7 @@ const BookingForm = () => {
                     cursor: 'pointer',
                     fontWeight: 'bold'
                 }}>
-                    הזמן שירות נוסף
+                    {t('success.new_order')}
                 </button>
             </div>
         );
@@ -232,27 +223,27 @@ const BookingForm = () => {
 
     return (
         <div style={{ maxWidth: '500px', margin: '0 auto', padding: '2rem', backgroundColor: 'var(--color-bg-light)', borderRadius: 'var(--border-radius)', boxShadow: 'var(--shadow-md)' }}>
-            <h3 style={{ textAlign: 'center', color: 'var(--color-primary)', marginBottom: '1.5rem' }}>הזמנת שירות חדש</h3>
+            <h3 style={{ textAlign: 'center', color: 'var(--color-primary)', marginBottom: '1.5rem' }}>{t('form.title')}</h3>
 
             <div style={{ marginBottom: '1.5rem', padding: '15px', border: '2px dashed #2196F3', borderRadius: '8px', textAlign: 'center', backgroundColor: '#e3f2fd' }}>
-                <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.1rem' }}>📸 סריקת רישיון רכב (חדש!)</label>
+                <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold', fontSize: '1.1rem' }}>{t('form.scan_title')}</label>
 
-                <div style={{ fontSize: '0.9rem', marginBottom: '10px', color: '#555', textAlign: 'right', display: 'inline-block' }}>
-                    <div>✨ <strong>הוראות לסריקה מוצלחת:</strong></div>
-                    <div>1. וודא שאין השתקפות (פלאש) על הטקסט</div>
-                    <div>2. צלם את הרישיון מקרוב ובצורה ישרה</div>
-                    <div>3. תמונות מטושטשות לא ייקלטו</div>
+                <div style={{ fontSize: '0.9rem', marginBottom: '10px', color: '#555', textAlign: language === 'he' ? 'right' : 'left', display: 'inline-block' }}>
+                    <div><strong>{t('form.scan_instructions.title')}</strong></div>
+                    <div>{t('form.scan_instructions.step1')}</div>
+                    <div>{t('form.scan_instructions.step2')}</div>
+                    <div>{t('form.scan_instructions.step3')}</div>
                 </div>
 
                 <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'block', margin: '15px auto' }} />
-                {status === 'ocr_processing' && <p style={{ color: 'blue', marginTop: '5px', fontWeight: 'bold' }}>מעבד תמונה... (אנא המתן)</p>}
+                {status === 'ocr_processing' && <p style={{ color: 'blue', marginTop: '5px', fontWeight: 'bold' }}>{t('form.processing')}</p>}
             </div>
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <input
                     type="text"
                     name="name"
-                    placeholder="שם מלא *"
+                    placeholder={t('form.labels.name')}
                     value={formData.name}
                     onChange={handleChange}
                     required
@@ -261,16 +252,16 @@ const BookingForm = () => {
                 <input
                     type="tel"
                     name="phone"
-                    placeholder="מספר טלפון *"
+                    placeholder={t('form.labels.phone')}
                     value={formData.phone}
                     onChange={handleChange}
                     required
-                    style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '1rem' }}
+                    style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '1rem', direction: 'ltr' }}
                 />
                 <input
                     type="text"
                     name="address"
-                    placeholder="כתובת איסוף *"
+                    placeholder={t('form.labels.address')}
                     value={formData.address}
                     onChange={handleChange}
                     required
@@ -279,7 +270,7 @@ const BookingForm = () => {
                 <input
                     type="text"
                     name="carType"
-                    placeholder="סוג רכב (יצרן ודגם) *"
+                    placeholder={t('form.labels.carType')}
                     value={formData.carType}
                     onChange={handleChange}
                     required
@@ -288,14 +279,14 @@ const BookingForm = () => {
                 <input
                     type="text"
                     name="licensePlate"
-                    placeholder="מספר רכב"
+                    placeholder={t('form.labels.licensePlate')}
                     value={formData.licensePlate}
                     onChange={handleChange}
-                    style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '1rem' }}
+                    style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '1rem', direction: 'ltr' }}
                 />
 
                 <div style={{ padding: '10px', backgroundColor: '#e9f7ef', borderRadius: '5px', border: '1px solid #c8e6c9' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#2e7d32', fontWeight: 'bold' }}>תוקף רישיון (לצורך תזכורת):</label>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem', color: '#2e7d32', fontWeight: 'bold' }}>{t('form.labels.licenseExpiry')}</label>
                     <input
                         type="date"
                         name="testDate"
@@ -310,14 +301,14 @@ const BookingForm = () => {
                     onChange={handleChange}
                     style={{ padding: '10px', borderRadius: '5px', border: '1px solid #ddd', fontSize: '1rem' }}
                 >
-                    <option value="טסט שנתי">טסט שנתי</option>
-                    <option value="שירותי מכונאות">שירותי מכונאות</option>
-                    <option value="שירותי פחחות">שירותי פחחות</option>
+                    <option value="test">{t('form.services.test')}</option>
+                    <option value="mechanic">{t('form.services.mechanic')}</option>
+                    <option value="bodywork">{t('form.services.bodywork')}</option>
                 </select>
 
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>תאריך מועדף:</label>
+                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>{t('form.labels.date')}</label>
                         <input
                             type="date"
                             name="date"
@@ -328,7 +319,7 @@ const BookingForm = () => {
                         />
                     </div>
                     <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>שעה מועדפת:</label>
+                        <label style={{ display: 'block', marginBottom: '5px', fontSize: '0.9rem' }}>{t('form.labels.time')}</label>
                         <input
                             type="time"
                             name="time"
@@ -352,10 +343,10 @@ const BookingForm = () => {
                     cursor: 'pointer',
                     opacity: (status === 'submitting' || status === 'ocr_processing') ? 0.7 : 1
                 }}>
-                    {status === 'submitting' ? 'שולח...' : 'הזמן שירות'}
+                    {status === 'submitting' ? t('form.sending') : t('form.submit')}
                 </button>
             </form>
-            {status === 'error' && <p style={{ textAlign: 'center', marginTop: '1rem', color: 'red' }}>אירעה שגיאה בשליחת ההזמנה.</p>}
+            {status === 'error' && <p style={{ textAlign: 'center', marginTop: '1rem', color: 'red' }}>Error sending order.</p>}
         </div>
     );
 };

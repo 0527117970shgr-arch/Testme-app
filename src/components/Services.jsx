@@ -1,30 +1,33 @@
 import React from 'react';
+import { useLanguage } from '../context/LanguageContext';
 import testServiceImg from '../assets/test-service.png';
 import mechanicServiceImg from '../assets/mechanic-service.png';
 import bodyworkServiceImg from '../assets/bodywork-service.png';
 
 const Services = () => {
+    const { t } = useLanguage();
+
     const services = [
         {
-            title: 'טסט שנתי',
-            desc: 'נעבור אותו במקומך ביעילות ובמקצועיות.',
+            title: t('services.test.title'),
+            desc: t('services.test.desc'),
             image: testServiceImg
         },
         {
-            title: 'שירותי מכונאות',
-            desc: 'ניהול כל הטיפולים והתיקונים עבורך – עד הבית.',
+            title: t('services.mechanic.title'),
+            desc: t('services.mechanic.desc'),
             image: mechanicServiceImg
         },
         {
-            title: 'שירותי פחחות',
-            desc: 'ניהול תיקוני מרכב וצבע במחירים ללא תחרות.',
+            title: t('services.bodywork.title'),
+            desc: t('services.bodywork.desc'),
             image: bodyworkServiceImg
         }
     ];
 
     return (
         <section id="services" style={{ padding: '4rem 5%', backgroundColor: 'var(--color-bg-light)' }}>
-            <h2 style={{ textAlign: 'center', marginBottom: '3rem', color: 'var(--color-secondary)' }}>השירותים שלנו</h2>
+            <h2 style={{ textAlign: 'center', marginBottom: '3rem', color: 'var(--color-secondary)' }}>{t('services.title')}</h2>
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
