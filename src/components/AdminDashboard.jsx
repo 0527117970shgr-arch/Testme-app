@@ -9,9 +9,14 @@ const AdminDashboard = () => {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [password, setPassword] = useState('');
 
+    // Settings Logic (Moved up to avoid conditional hook error)
+    const [showSettings, setShowSettings] = useState(false);
+    const [smsTemplate, setSmsTemplate] = useState('שלום [Customer Name], תזכורת: בעוד שבועיים יפוג תוקף הרישיון לרכב [License Plate]. אל תשכח לבצע טסט!');
+
     useEffect(() => {
         if (isAuthenticated) {
             fetchBookings();
+            fetchSettings();
         }
     }, [isAuthenticated]);
 
@@ -90,16 +95,8 @@ const AdminDashboard = () => {
         );
     }
 
-    // Settings Logic
-    const [showSettings, setShowSettings] = useState(false);
-    const [smsTemplate, setSmsTemplate] = useState('שלום [Customer Name], תזכורת: בעוד שבועיים יפוג תוקף הרישיון לרכב [License Plate]. אל תשכח לבצע טסט!');
+    // Settings Logic moved to top
 
-    // Fetch settings on load
-    useEffect(() => {
-        if (isAuthenticated) {
-            fetchSettings();
-        }
-    }, [isAuthenticated]);
 
     const fetchSettings = async () => {
         try {
