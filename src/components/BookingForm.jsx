@@ -14,7 +14,8 @@ const BookingForm = () => {
         date: '',
         time: '',
         licensePlate: '',
-        testDate: ''
+        testDate: '',
+        licenseExpiry: ''
     });
     const [status, setStatus] = useState(''); // 'submitting', 'success', 'error', 'ocr_processing'
     const [submittedData, setSubmittedData] = useState(null);
@@ -185,7 +186,7 @@ const BookingForm = () => {
             console.log('Submission complete');
             setStatus('success');
             setSubmittedData(docData);
-            setFormData({ name: '', phone: '', address: '', carType: '', service: 'טסט שנתי', date: '', time: '', licensePlate: '', testDate: '', licenseImageUrl: '' });
+            setFormData({ name: '', phone: '', address: '', carType: '', service: 'טסט שנתי', date: '', time: '', licensePlate: '', testDate: '', licenseExpiry: '', licenseImageUrl: '' });
             setLicenseImage(null);
         } catch (error) {
             console.error("Error adding document: ", error);
