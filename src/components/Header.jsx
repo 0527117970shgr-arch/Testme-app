@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
 
-const Header = () => {
+const Header = ({ onToggleChat }) => {
     const { language, toggleLanguage, t } = useLanguage();
 
     return (
@@ -43,6 +43,19 @@ const Header = () => {
                 <ul style={{ display: 'flex', gap: '2rem', listStyle: 'none', margin: 0, padding: 0 }}>
                     <li><a href="#services" style={{ fontWeight: '500', color: 'inherit', textDecoration: 'none' }}>{t('header.services')}</a></li>
                     <li><a href="#process" style={{ fontWeight: '500', color: 'inherit', textDecoration: 'none' }}>{t('header.process')}</a></li>
+                    <li><button onClick={onToggleChat} style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'inherit',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                    }}>
+                        🤖 {t('header.ai_assistant') || 'Assistant'}
+                    </button></li>
                     <li><a href="#contact" style={{
                         backgroundColor: 'var(--color-primary)',
                         color: 'var(--color-secondary)',

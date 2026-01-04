@@ -1,4 +1,5 @@
 import { OpenAI } from 'openai';
+import 'dotenv/config';
 
 export const handler = async (event) => {
     if (event.httpMethod !== 'POST') {

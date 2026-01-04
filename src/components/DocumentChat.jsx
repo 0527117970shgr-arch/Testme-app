@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 
-const DocumentChat = () => {
+const DocumentChat = ({ isOpen, onToggle }) => {
     const { language } = useLanguage();
+    const [documentText, setDocumentText] = useState('');
+    const [query, setQuery] = useState('');
+    const [answer, setAnswer] = useState('');
+    const [citations, setCitations] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [imageBase64, setImageBase64] = useState(null);
+    // const [showChat, setShowChat] = useState(false); // Helper: State handled by parent
+
+    // Ensure we default to showing just the button if closed
+    const showChat = isOpen;
+    const setShowChat = onToggle;
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
@@ -93,7 +103,7 @@ const DocumentChat = () => {
     return (
         <section style={{ padding: '2rem 5%', backgroundColor: '#f0f4f8', textAlign: 'center' }}>
             {!showChat ? (
-                <button onClick={() => setShowChat(true)} style={{
+                <button onClick={onToggle} style={{
                     padding: '10px 25px',
                     borderRadius: '50px',
                     border: '2px solid var(--color-primary)',
@@ -119,7 +129,7 @@ const DocumentChat = () => {
                     boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                     position: 'relative'
                 }}>
-                    <button onClick={() => setShowChat(false)} style={{
+                    <button onClick={onToggle} style={{
                         position: 'absolute',
                         top: '10px',
                         right: language === 'he' ? 'auto' : '10px',

@@ -9,6 +9,8 @@ import DocumentChat from './components/DocumentChat';
 import { LanguageProvider } from './context/LanguageContext';
 
 const App = () => {
+  const [showChat, setShowChat] = React.useState(false);
+
   return (
     <LanguageProvider>
       <Router>
@@ -16,13 +18,13 @@ const App = () => {
           <Routes>
             <Route path="/" element={
               <>
-                <Header />
+                <Header onToggleChat={() => setShowChat(!showChat)} />
                 <Hero />
                 <div id="services">
                   <Services />
                 </div>
                 <div id="ai-chat">
-                  <DocumentChat />
+                  <DocumentChat isOpen={showChat} onToggle={() => setShowChat(!showChat)} />
                 </div>
                 <div id="booking">
                   <BookingForm />
@@ -31,7 +33,7 @@ const App = () => {
             } />
             <Route path="/admin" element={
               <>
-                <Header />
+                <Header onToggleChat={() => setShowChat(!showChat)} />
                 <AdminDashboard />
               </>
             } />
