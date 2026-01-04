@@ -85,19 +85,20 @@ const BookingForm = () => {
 
             console.log("OCR Result:", result);
 
-            const { licensePlate, testDate, name, licenseExpiry } = result.extracted || {};
+            const { licensePlate, testDate, name, licenseExpiry, carType } = result.extracted || {};
 
             setFormData(prev => ({
                 ...prev,
                 licensePlate: licensePlate || prev.licensePlate,
                 testDate: testDate || prev.testDate,
                 name: name || prev.name,
-                licenseExpiry: licenseExpiry || prev.licenseExpiry
+                licenseExpiry: licenseExpiry || prev.licenseExpiry,
+                carType: carType || prev.carType
             }));
 
             // Alert user (Could be improved to use a UI modal/toast instead of alert for better localization, but keeping simple for now)
-            if (licensePlate || testDate || name || licenseExpiry) {
-                alert(`OCR Complete!\nDetected:\nPlate: ${licensePlate || 'N/A'}\nName: ${name || 'N/A'}\nExpiry: ${licenseExpiry || testDate || 'N/A'}`);
+            if (licensePlate || testDate || name || licenseExpiry || carType) {
+                alert(`OCR Complete!\nDetected:\nPlate: ${licensePlate || 'N/A'}\nName: ${name || 'N/A'}\nType: ${carType || 'N/A'}\nExpiry: ${licenseExpiry || testDate || 'N/A'}`);
             } else {
                 alert("OCR Complete, but no specific details found. Please fill manually.");
             }

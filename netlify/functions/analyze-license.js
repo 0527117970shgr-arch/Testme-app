@@ -26,20 +26,21 @@ export const handler = async (event) => {
         });
 
         // Prompt for GPT-4 Vision
-        // Prompt for GPT-4 Vision
         const prompt = `
         Analyze this image of an Israeli vehicle license (Rishayon Rechev).
         Extract these SPECIFIC fields in JSON format:
         1. "licensePlate" - The vehicle number (XXX-XX-XXX or similar).
-        2. "model" - The car model (Toyota Corolla, etc).
+        2. "carType" - The car model/make (e.g., Mazda 3, Toyota Corolla). Look for "סוג" or "תוצר".
         3. "licenseExpiry" - The "Valid Until / בתוקף עד" date (DD/MM/YYYY).
+        4. "name" - The Owner Name (בעלים). Usually at the top right.
 
-        CRITICAL: 
-        - If you see a date valid until 2024/2025/2026, that is the expiry.
-        - Look for "תוקף הרישיון" or "בתוקף עד".
+        CRITICAL SCANNING INSTRUCTIONS:
+        - Owner Name (בעלים): This is CRITICAL. Look for Hebrew text under "בעלים" matching a person's name (e.g., "וייסמן מרדכי").
+        - Expiry (בתוקף עד): Look specifically for the date next to "בתוקף עד". If you see 2026/2025, that is it.
+        - Car Type (דגם/סוג): Look for the model name (e.g. Mazda 3).
 
         Return ONLY raw JSON.
-        Example: { "licensePlate": "123-45-678", "model": "Mazda 3", "licenseExpiry": "01/01/2025" }
+        Example: { "licensePlate": "123-45-678", "carType": "Mazda 3", "licenseExpiry": "01/01/2025", "name": "ישראל ישראלי" }
         `;
 
         const response = await openai.chat.completions.create({
@@ -76,7 +77,8 @@ export const handler = async (event) => {
                     licensePlate: extracted.licensePlate,
                     testDate: extracted.testDate || extracted.licenseExpiry,
                     name: extracted.name,
-                    licenseExpiry: extracted.licenseExpiry
+                    licenseExpiry: extracted.licenseExpiry,
+                    carType: extracted.carType || extracted.model
                 }
             })
         };
