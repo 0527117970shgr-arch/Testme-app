@@ -28,7 +28,7 @@ export const handler = async (event, context) => {
     }
 
     try {
-        const { query, documentText } = JSON.parse(event.body);
+        const { query, documentText, imageBase64 } = JSON.parse(event.body);
 
         if (!process.env.OPENAI_API_KEY) {
             throw new Error("Missing OPENAI_API_KEY environment variable.");
@@ -36,6 +36,36 @@ export const handler = async (event, context) => {
 
         console.log(`[Smart Agent] Processing query: "${query}"`);
 
+        // --- IMAGE PROCESSING (VISION) ---
+        if (imageBase64) {
+            console.log(`[Smart Agent] Processing Image with GPT-4 Vision`);
+            // Better: Use LangChain's ChatOpenAI with image content
+
+            const chat = new ChatOpenAI({
+                modelName: "gpt-4-turbo",
+                maxTokens: 500,
+                openAIApiKey: process.env.OPENAI_API_KEY
+            });
+
+            const message = new HumanMessage({
+                content: [
+                    { type: "text", text: query },
+                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
+                ]
+            });
+
+            const response = await chat.invoke([message]);
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify({
+                    answer: response.content,
+                    citations: [{ text: "Analyzed Image content", score: 1 }]
+                })
+            };
+        }
+
+        // --- TEXT PROCESSING (RAG) ---
         // 1. Text Splitting
         const splitter = new RecursiveCharacterTextSplitter({
             chunkSize: 1000,

@@ -27,14 +27,13 @@ export const handler = async (event) => {
         // Prompt for GPT-4 Vision
         const prompt = `
         Analyze this image of an Israeli vehicle license (Rishayon Rechev).
-        Extract the following fields in JSON format:
+        Extract the following fields in JSON format with 100% precision:
         - licensePlate: The license plate number (digits, maybe hyphens).
-        - name: The owner's name (Hebrew).
-        - testDate: The valid until date or test date (DD/MM/YYYY).
-        - licenseExpiry: The license expiry date (DD/MM/YYYY).
+        - model: The specific Vehicle Model (e.g., Toyota Corolla, Mazda 3).
+        - licenseExpiry: The license expiry date (VALID UNTIL / בתוקף עד) in DD/MM/YYYY format.
 
         Return ONLY raw JSON, no markdown formatting.
-        Example: { "licensePlate": "123-45-678", "name": "ישראל ישראלי", "testDate": "01/01/2025" }
+        Example: { "licensePlate": "123-45-678", "model": "Toyota Corolla", "licenseExpiry": "01/01/2025" }
         `;
 
         const response = await openai.chat.completions.create({

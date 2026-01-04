@@ -3,19 +3,27 @@ import { useLanguage } from '../context/LanguageContext';
 
 const DocumentChat = () => {
     const { language } = useLanguage();
-    const [documentText, setDocumentText] = useState('');
-    const [query, setQuery] = useState('');
-    const [answer, setAnswer] = useState('');
-    const [citations, setCitations] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [showChat, setShowChat] = useState(false);
+    const [imageBase64, setImageBase64] = useState(null);
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
             const reader = new FileReader();
-            reader.onload = (e) => setDocumentText(e.target.result);
-            reader.readAsText(file);
+
+            if (file.type.startsWith('image/')) {
+                reader.onload = (e) => {
+                    // Store full base64 string for display if needed, but for sending we might need to strip prefix
+                    // Logic: split at comma
+                    const base64Raw = e.target.result.split(',')[1];
+                    setImageBase64(base64Raw);
+                    setDocumentText(`[Image Selected: ${file.name}]`); // Placeholder text
+                };
+                reader.readAsDataURL(file);
+            } else {
+                reader.onload = (e) => setDocumentText(e.target.result);
+                reader.readAsText(file);
+                setImageBase64(null);
+            }
         }
     };
 
@@ -31,8 +39,9 @@ const DocumentChat = () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     query,
-                    documentText,
-                    mode: 'hybrid' // hybrid search
+                    documentText: imageBase64 ? null : documentText, // Send text if text
+                    imageBase64: imageBase64, // Send image if image
+                    mode: 'hybrid'
                 })
             });
 
@@ -132,7 +141,7 @@ const DocumentChat = () => {
                             style={{ width: '100%', minHeight: '150px', padding: '10px', borderRadius: '4px', border: '1px solid #ddd', fontFamily: 'inherit' }}
                         />
                         <div style={{ marginTop: '5px', textAlign: language === 'he' ? 'right' : 'left' }}>
-                            <input type="file" accept=".txt,.md,.json" onChange={handleFileChange} />
+                            <input type="file" accept=".txt,.md,.json,.png,.jpg,.jpeg" onChange={handleFileChange} />
                         </div>
                     </div>
 
