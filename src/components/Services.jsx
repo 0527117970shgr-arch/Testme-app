@@ -5,17 +5,17 @@ const Services = () => {
         {
             title: 'טסט שנתי',
             desc: 'נעבור אותו במקומך ביעילות ובמקצועיות.',
-            icon: '🚗'
+            image: testServiceImg
         },
         {
             title: 'שירותי מכונאות',
             desc: 'ניהול כל הטיפולים והתיקונים עבורך – עד הבית.',
-            icon: '🛠️'
+            image: mechanicServiceImg
         },
         {
             title: 'שירותי פחחות',
             desc: 'ניהול תיקוני מרכב וצבע במחירים ללא תחרות.',
-            icon: '🎨'
+            image: bodyworkServiceImg
         }
     ];
 
@@ -30,7 +30,7 @@ const Services = () => {
                 {services.map((service, index) => (
                     <div key={index} style={{
                         backgroundColor: 'var(--color-white)',
-                        padding: '2rem',
+                        padding: '0',
                         borderRadius: 'var(--border-radius)',
                         boxShadow: 'var(--shadow-sm)',
                         textAlign: 'center',
@@ -40,9 +40,11 @@ const Services = () => {
                         onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
                         onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{service.icon}</div>
+                        <div style={{ height: '200px', overflow: 'hidden', borderRadius: 'var(--border-radius) var(--border-radius) 0 0', marginBottom: '1rem' }}>
+                            <img src={service.image} alt={service.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
                         <h3 style={{ color: 'var(--color-primary)', marginBottom: '1rem' }}>{service.title}</h3>
-                        <p>{service.desc}</p>
+                        <p style={{ padding: '0 1rem 1rem' }}>{service.desc}</p>
                     </div>
                 ))}
             </div>

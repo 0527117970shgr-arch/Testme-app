@@ -31,7 +31,7 @@ const Header = () => {
                     flexDirection: 'column'
                 }}>
                     <span style={{ fontSize: '1rem', letterSpacing: '1px' }}>test</span>
-                    <span style={{ fontSize: '1.2rem', fontWeight: '800' }}>me.</span>
+                    <span style={{ fontSize: '1.2rem', fontWeight: '800' }}>me</span>
                 </div>
                 <span style={{ fontSize: '1.5rem', color: 'var(--color-primary)' }}>שירותי רכב</span>
             </div>
