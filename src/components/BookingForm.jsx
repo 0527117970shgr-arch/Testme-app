@@ -28,6 +28,16 @@ const BookingForm = () => {
     // Image pre-processing handled by Server now for stability
 
 
+    // Helper to convert file to Base64
+    const convertFileToBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result.split(',')[1]); // remove data:image/jpeg;base64,
+            reader.onerror = error => reject(error);
+        });
+    };
+
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -37,24 +47,17 @@ const BookingForm = () => {
         setOcrProgress(10);
 
         try {
-            // 1. Upload to Firebase FIRST (to get a public URL for the backend)
-            console.log("Uploading image to Firebase...");
-            const storageRef = ref(storage, `licenses/${Date.now()}_${file.name}`);
-            await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(storageRef);
-            console.log("Image uploaded:", downloadURL);
+            // 1. Convert to Base64 (No Upload yet)
+            console.log("Converting image to Base64...");
+            const base64Image = await convertFileToBase64(file);
+            setOcrProgress(30);
 
-            // Save URL to state so handleSubmit doesn't need to re-upload
-            setFormData(prev => ({ ...prev, licenseImageUrl: downloadURL }));
-
-            setOcrProgress(50);
-
-            // 2. Call Google Vision via Netlify Function (Pass URL)
-            console.log("Sending URL to OCR...");
+            // 2. Call Google Vision via Netlify Function (Pass Base64)
+            console.log("Sending Base64 to OCR...");
             const response = await fetch('/.netlify/functions/analyze-license', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageUrl: downloadURL })
+                body: JSON.stringify({ imageBase64: base64Image })
             });
 
             const result = await response.json();
@@ -71,7 +74,6 @@ const BookingForm = () => {
 
             setFormData(prev => ({
                 ...prev,
-                licenseImageUrl: downloadURL, // Ensure it's set
                 licensePlate: licensePlate || prev.licensePlate,
                 testDate: testDate || prev.testDate
             }));
@@ -85,8 +87,7 @@ const BookingForm = () => {
             setStatus('');
 
         } catch (err) {
-            console.error("OCR/Upload Error:", err);
-            // Don't block the user, just let them know
+            console.error("OCR/Base64 Error:", err);
             alert("שגיאה בסריקת התמונה. \nאל דאגה, ניתן למלא את הפרטים ידנית ולשלוח את הטופס.");
             setStatus('');
         }
