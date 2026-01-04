@@ -85,46 +85,23 @@ const BookingForm = () => {
                 throw new Error(result.error || "Failed to analyze image");
             }
 
-            const text = result.text;
-            console.log("Google Vision Extracted Text:", text);
+            console.log("OCR Result:", result);
 
-            // 3. Extraction Logic
-            const lines = text.split('\n');
-            let potentialPlate = '';
-            let potentialDate = '';
-
-            // Regex for date DD/MM/YYYY or DD.MM.YYYY
-            const dateRegex = /\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b/;
-
-            lines.forEach(line => {
-                const cleanLine = line.trim();
-                // License plate: strictly 7 or 8 digits
-                if (/^\d{7,8}$/.test(cleanLine.replace(/-/g, ''))) {
-                    potentialPlate = cleanLine.replace(/-/g, '');
-                }
-
-                // Expiry Date extraction
-                const dateMatch = cleanLine.match(dateRegex);
-                if (dateMatch) {
-                    let day = dateMatch[1];
-                    let month = dateMatch[2];
-                    let year = dateMatch[3];
-
-                    if (year.length === 2) year = '20' + year;
-                    if (day.length === 1) day = '0' + day;
-                    if (month.length === 1) month = '0' + month;
-
-                    potentialDate = `${year}-${month}-${day}`;
-                }
-            });
+            // 3. Extraction Logic (Now mostly Server-Side)
+            const { licensePlate, testDate } = result.extracted || {};
 
             setFormData(prev => ({
                 ...prev,
-                licensePlate: potentialPlate || prev.licensePlate,
-                testDate: potentialDate || prev.testDate
+                licensePlate: licensePlate || prev.licensePlate,
+                testDate: testDate || prev.testDate
             }));
 
-            alert(`סריקה הושלמה! \nאנא וודא שהפרטים נכונים.`);
+            // Alert user what we found
+            if (licensePlate || testDate) {
+                alert(`סריקה הושלמה! \nזיהינו מספר רכב: ${licensePlate || 'לא זוהה'} \nתוקף: ${testDate || 'לא זוהה'} \n\nאנא וודא שהפרטים נכונים.`);
+            } else {
+                alert("הסריקה הושלמה, אך לא זיהינו פרטים בבירור. אנא מלא ידנית.");
+            }
             setStatus('');
 
         } catch (err) {

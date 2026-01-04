@@ -25,7 +25,7 @@ export const handler = async (event) => {
                     },
                     features: [
                         {
-                            type: "TEXT_DETECTION",
+                            type: "DOCUMENT_TEXT_DETECTION", // Better for dense documents
                             maxResults: 1
                         }
                     ],
@@ -54,9 +54,54 @@ export const handler = async (event) => {
 
         const fullText = data.responses[0]?.fullTextAnnotation?.text || "";
 
+        // --- Server-Side Parsing Logic ---
+        const cleanedText = fullText.replace(/[^\w\s\u0590-\u05FF./-]/g, ' '); // Keep He, En, Digits, dots, dashes, slashes
+        const lines = cleanedText.split('\n');
+
+        let detectedPlate = null;
+        let detectedDate = null;
+
+        // Regex for Israeli License Plate: 7-9 digits (User requested 7-9)
+        // We look for standalone sequences to avoid phone numbers if possible, 
+        // but often plates are just 7-8 digits. 
+        // We prioritize 7 or 8.
+        const plateRegex = /\b\d{7,9}\b/;
+        const dateRegex = /\b(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})\b/;
+
+        // Scan tokens instead of just lines incase of bad newlines
+        const tokens = cleanedText.split(/\s+/);
+
+        for (const token of tokens) {
+            const cleanToken = token.replace(/\D/g, '');
+            if (!detectedPlate && (cleanToken.length >= 7 && cleanToken.length <= 9)) {
+                detectedPlate = cleanToken;
+            }
+
+            // For date, we need the original punctuation
+            const dateMatch = token.match(dateRegex);
+            if (!detectedDate && dateMatch) {
+                let day = dateMatch[1];
+                let month = dateMatch[2];
+                let year = dateMatch[3];
+
+                // Normalize 2-digit year (assume 20xx)
+                if (year.length === 2) year = '20' + year;
+                if (day.length === 1) day = '0' + day;
+                if (month.length === 1) month = '0' + month;
+
+                detectedDate = `${year}-${month}-${day}`;
+            }
+        }
+
         return {
             statusCode: 200,
-            body: JSON.stringify({ text: fullText })
+            body: JSON.stringify({
+                text: fullText,
+                extracted: {
+                    licensePlate: detectedPlate,
+                    testDate: detectedDate
+                }
+            })
         };
 
     } catch (error) {
