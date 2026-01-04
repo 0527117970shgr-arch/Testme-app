@@ -25,38 +25,8 @@ const BookingForm = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const preprocessImage = (file) => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
+    // Image pre-processing handled by Server now for stability
 
-                    ctx.drawImage(img, 0, 0);
-                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    const data = imageData.data;
-
-                    // Grayscale & High Contrast
-                    for (let i = 0; i < data.length; i += 4) {
-                        const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                        const contrast = avg > 128 ? 255 : 0; // Binarization
-                        data[i] = contrast;     // R
-                        data[i + 1] = contrast; // G
-                        data[i + 2] = contrast; // B
-                    }
-
-                    ctx.putImageData(imageData, 0, 0);
-                    resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]); // Return base64 content
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-    };
 
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
@@ -67,15 +37,24 @@ const BookingForm = () => {
         setOcrProgress(10);
 
         try {
-            // 1. Pre-process
-            const base64Image = await preprocessImage(file);
-            setOcrProgress(40);
+            // 1. Upload to Firebase FIRST (to get a public URL for the backend)
+            console.log("Uploading image to Firebase...");
+            const storageRef = ref(storage, `licenses/${Date.now()}_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+            console.log("Image uploaded:", downloadURL);
 
-            // 2. Call Google Vision via Netlify Function
+            // Save URL to state so handleSubmit doesn't need to re-upload
+            setFormData(prev => ({ ...prev, licenseImageUrl: downloadURL }));
+
+            setOcrProgress(50);
+
+            // 2. Call Google Vision via Netlify Function (Pass URL)
+            console.log("Sending URL to OCR...");
             const response = await fetch('/.netlify/functions/analyze-license', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageBase64: base64Image })
+                body: JSON.stringify({ imageUrl: downloadURL })
             });
 
             const result = await response.json();
@@ -87,36 +66,29 @@ const BookingForm = () => {
 
             console.log("OCR Result:", result);
 
-            // 3. Extraction Logic (Now mostly Server-Side)
+            // 3. Extraction Logic
             const { licensePlate, testDate } = result.extracted || {};
 
             setFormData(prev => ({
                 ...prev,
+                licenseImageUrl: downloadURL, // Ensure it's set
                 licensePlate: licensePlate || prev.licensePlate,
                 testDate: testDate || prev.testDate
             }));
 
-            // Alert user what we found
+            // Alert user
             if (licensePlate || testDate) {
-                alert(`סריקה הושלמה! \nזיהינו מספר רכב: ${licensePlate || 'לא זוהה'} \nתוקף: ${testDate || 'לא זוהה'} \n\nאנא וודא שהפרטים נכונים.`);
+                alert(`סריקה הושלמה! \nזיהינו מספר רכב: ${licensePlate || 'לא זוהה'} \nתוקף: ${testDate || 'לא זוהה'}`);
             } else {
                 alert("הסריקה הושלמה, אך לא זיהינו פרטים בבירור. אנא מלא ידנית.");
             }
             setStatus('');
 
         } catch (err) {
-            console.error("OCR Error:", err);
-            const isGoogleError = err.message && (err.message.includes("Missing API Key") || err.message.includes("Server configuration"));
-
-            if (isGoogleError) {
-                alert("שגיאת מערכת: מפתח Google API חסר. \nאנא הזן את הפרטים ידנית.");
-            } else {
-                alert("לא הצלחנו לפענח את התמונה. \nנא להזין את פרטי הרכב ידנית.");
-            }
-        } finally {
-            // ALWAYS reset status so user can edit/submit manually
+            console.error("OCR/Upload Error:", err);
+            // Don't block the user, just let them know
+            alert("שגיאה בסריקת התמונה. \nאל דאגה, ניתן למלא את הפרטים ידנית ולשלוח את הטופס.");
             setStatus('');
-            setOcrProgress(0);
         }
     };
 
@@ -129,15 +101,7 @@ const BookingForm = () => {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    name: data.name,
-                    phone: data.phone,
-                    cartype: data.carType,
-                    address: data.address,
-                    service: data.service,
-                    date: data.date,
-                    time: data.time
-                })
+                body: JSON.stringify(data)
             });
 
             const result = await response.json();
@@ -154,11 +118,12 @@ const BookingForm = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        console.log('Starting submission...');
 
         // Validation: License Plate (Allow dashes, but check for 7-8 digits)
         const cleanPlate = formData.licensePlate.replace(/\D/g, ''); // Remove non-digits
-        if (formData.licensePlate && (cleanPlate.length < 7 || cleanPlate.length > 8)) {
-            alert("מספר רכב לא תקין. נא להזין 7 או 8 ספרות.");
+        if (formData.licensePlate && (cleanPlate.length < 7 || cleanPlate.length > 9)) {
+            alert("מספר רכב לא תקין (חייב להכיל 7-9 ספרות).");
             return;
         }
 
@@ -168,17 +133,26 @@ const BookingForm = () => {
         setStatus('submitting');
 
         try {
-            let licenseImageUrl = '';
+            // Robust Image Logic:
+            // If we have a URL from OCR, use it.
+            // If not, but we have a file (maybe user skipped OCR or it failed), try to upload now.
+            let finalImageUrl = finalData.licenseImageUrl || '';
 
-            if (licenseImage) {
-                const storageRef = ref(storage, `licenses/${Date.now()}_${licenseImage.name}`);
-                await uploadBytes(storageRef, licenseImage);
-                licenseImageUrl = await getDownloadURL(storageRef);
+            if (!finalImageUrl && licenseImage) {
+                try {
+                    console.log("Uploading image during submit...");
+                    const storageRef = ref(storage, `licenses/${Date.now()}_${licenseImage.name}`);
+                    await uploadBytes(storageRef, licenseImage);
+                    finalImageUrl = await getDownloadURL(storageRef);
+                } catch (uploadEffect) {
+                    console.error("Failed to upload image during submit. Proceeding without image.", uploadEffect);
+                    // Proceed anyway!
+                }
             }
 
             const docData = {
                 ...finalData,
-                licenseImageUrl,
+                licenseImageUrl: finalImageUrl,
                 timestamp: new Date(),
                 status: 'חדש'
             };
@@ -192,9 +166,10 @@ const BookingForm = () => {
                 console.error("SMS Warning: Failed to send notification, but order is saved.", smsError);
             }
 
+            console.log('Submission complete');
             setStatus('success');
             setSubmittedData(docData);
-            setFormData({ name: '', phone: '', address: '', carType: '', service: 'טסט שנתי', date: '', time: '', licensePlate: '', testDate: '' });
+            setFormData({ name: '', phone: '', address: '', carType: '', service: 'טסט שנתי', date: '', time: '', licensePlate: '', testDate: '', licenseImageUrl: '' });
             setLicenseImage(null);
         } catch (error) {
             console.error("Error adding document: ", error);

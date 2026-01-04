@@ -6,7 +6,7 @@ export const handler = async (event) => {
     }
 
     try {
-        const { imageBase64 } = JSON.parse(event.body);
+        const { imageUrl } = JSON.parse(event.body); // Expect URL now
         const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
 
         if (!apiKey) {
@@ -16,6 +16,20 @@ export const handler = async (event) => {
                 body: JSON.stringify({ error: "Server configuration error: Missing API Key" })
             };
         }
+
+        if (!imageUrl) {
+            return { statusCode: 400, body: JSON.stringify({ error: "Missing image URL" }) };
+        }
+
+        // Download image server-side to bypass CORS and clean logic
+        console.log("Fetching image from URL:", imageUrl);
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+        }
+        const imageBuffer = await imageResponse.arrayBuffer();
+        const imageBase64 = Buffer.from(imageBuffer).toString('base64');
+
 
         const requestBody = {
             requests: [
