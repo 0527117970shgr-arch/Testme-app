@@ -87,12 +87,29 @@ const BookingForm = () => {
 
             const { licensePlate, testDate, name, licenseExpiry, carType } = result.extracted || {};
 
+            // Helper to parse DD/MM/YYYY to YYYY-MM-DD
+            const parseDate = (dateStr) => {
+                if (!dateStr) return '';
+                // Try converting DD/MM/YYYY to YYYY-MM-DD
+                const parts = dateStr.split('/');
+                if (parts.length === 3) {
+                    // Assuming day/month/year
+                    const [day, month, year] = parts;
+                    // Pad with zeros if needed
+                    const pad = (n) => n.toString().padStart(2, '0');
+                    return `${year}-${pad(month)}-${pad(day)}`;
+                }
+                return dateStr; // Return as is if format doesn't match
+            };
+
+            const formattedExpiry = parseDate(licenseExpiry || testDate);
+
             setFormData(prev => ({
                 ...prev,
                 licensePlate: licensePlate || prev.licensePlate,
-                testDate: testDate || prev.testDate,
+                testDate: formattedExpiry || prev.testDate,
                 name: name || prev.name,
-                licenseExpiry: licenseExpiry || prev.licenseExpiry,
+                licenseExpiry: formattedExpiry || prev.licenseExpiry,
                 carType: carType || prev.carType
             }));
 
@@ -159,9 +176,14 @@ const BookingForm = () => {
                 timestamp: new Date(),
                 status: 'חדש',
                 reminderQueueDate: finalData.licenseExpiry ? (() => {
-                    const d = new Date(finalData.licenseExpiry);
-                    d.setDate(d.getDate() - 14);
-                    return d.toISOString().split('T')[0];
+                    try {
+                        const d = new Date(finalData.licenseExpiry);
+                        if (isNaN(d.getTime())) return null; // Logic to handle invalid date
+                        d.setDate(d.getDate() - 14);
+                        return d.toISOString().split('T')[0];
+                    } catch (e) {
+                        return null;
+                    }
                 })() : null,
                 reminderSent: false
             };
