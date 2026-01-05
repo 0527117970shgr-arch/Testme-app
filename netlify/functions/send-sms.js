@@ -78,10 +78,10 @@ export const handler = async (event) => {
             const baseUrl = 'https://www.sms4free.co.il/ApiSMS/SendSMS.aspx';
             const url = `${baseUrl}?${params.toString()}`;
 
-            console.log(`Sending SMS (Legacy GET) to ${dest}...`);
+            console.log(`Sending SMS to ${dest}...`);
 
             // Log the URL structure (masked passwords) for debugging if needed
-            // console.log("URL:", url.replace(PASS, '***'));
+            console.log("URL:", url.replace(PASS, '***'));
 
             const response = await fetch(url, {
                 method: 'GET',
