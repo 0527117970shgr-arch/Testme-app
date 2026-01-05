@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { db } from '../firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
 
 const BookingForm = () => {
@@ -169,16 +170,37 @@ const BookingForm = () => {
                 'bodywork': 'שירותי פחחות'
             };
 
+            // Add helper for storage upload
+            const uploadLicenseImage = async (fileOrBlob) => {
+                if (!fileOrBlob) return '';
+                try {
+                    const storageRef = ref(storage, `licenses/${Date.now()}_${fileOrBlob.name || 'license.jpg'}`);
+                    const snapshot = await uploadBytes(storageRef, fileOrBlob);
+                    return await getDownloadURL(snapshot.ref);
+                } catch (error) {
+                    console.error("Upload failed:", error);
+                    return '';
+                }
+            };
+
+            // In handleSubmit, before creating dbData:
+            let imageUrl = '';
+            if (licenseImage) {
+                // We can upload the original file or the compressed one. 
+                // Simple: upload the original file from state `licenseImage`
+                imageUrl = await uploadLicenseImage(licenseImage);
+            }
+
             const dbData = {
                 ...finalData,
                 service: serviceMap[finalData.service] || finalData.service,
-                licenseImageUrl: '',
+                licenseImageUrl: imageUrl,
                 timestamp: new Date(),
                 status: 'חדש',
                 reminderQueueDate: finalData.licenseExpiry ? (() => {
                     try {
                         const d = new Date(finalData.licenseExpiry);
-                        if (isNaN(d.getTime())) return null; // Logic to handle invalid date
+                        if (isNaN(d.getTime())) return null;
                         d.setDate(d.getDate() - 14);
                         return d.toISOString().split('T')[0];
                     } catch (e) {
