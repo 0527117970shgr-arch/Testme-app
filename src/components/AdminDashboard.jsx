@@ -303,24 +303,68 @@ const AdminDashboard = () => {
                                     </td>
                                     <td style={{ padding: '15px' }}>{booking.service}<br />{booking.date} {booking.time}</td>
                                     <td style={{ padding: '15px' }}>
-                                        color: 'white',
-                                        fontWeight: 'bold',
-                                        cursor: 'pointer'
-                                            }}
-                                        >
-                                        <option value="חדש" style={{ color: 'black' }}>{tAdmin.status.new}</option>
-                                        <option value="בטיפול" style={{ color: 'black' }}>{tAdmin.status.in_progress}</option>
-                                        <option value="הושלם" style={{ color: 'black' }}>{tAdmin.status.completed}</option>
-                                        <option value="בוטל" style={{ color: 'black' }}>{tAdmin.status.cancelled}</option>
-                                    </select>
-                                </td>
+                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                            <select
+                                                value={booking.status || 'חדש'}
+                                                onChange={(e) => updateStatus(booking.id, e.target.value)}
+                                                style={{
+                                                    padding: '5px',
+                                                    borderRadius: '4px',
+                                                    border: '1px solid #ddd',
+                                                    backgroundColor: getStatusColor(booking.status || 'חדש'),
+                                                    color: 'white',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <option value="חדש" style={{ color: 'black' }}>{tAdmin.status.new}</option>
+                                                <option value="בטיפול" style={{ color: 'black' }}>{tAdmin.status.in_progress}</option>
+                                                <option value="הושלם" style={{ color: 'black' }}>{tAdmin.status.completed}</option>
+                                                <option value="בוטל" style={{ color: 'black' }}>{tAdmin.status.cancelled}</option>
+                                            </select>
+
+                                            <button
+                                                onClick={() => {
+                                                    const msg = prompt(`Send SMS to ${booking.name}:`, "שלום, הרכב שלך מוכן.");
+                                                    if (msg) {
+                                                        const to = booking.phone.replace(/\D/g, '').replace(/^0/, '972');
+                                                        fetch('/.netlify/functions/send-sms', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({
+                                                                to: to,
+                                                                customMessage: msg
+                                                            })
+                                                        })
+                                                            .then(res => res.json())
+                                                            .then(data => {
+                                                                if (data.success) alert("SMS Sent!");
+                                                                else alert("Error sending SMS: " + (data.errors || data.error));
+                                                            })
+                                                            .catch(err => alert("Network Error: " + err.message));
+                                                    }
+                                                }}
+                                                title="Send SMS"
+                                                style={{
+                                                    padding: '5px 10px',
+                                                    borderRadius: '4px',
+                                                    border: 'none',
+                                                    backgroundColor: '#2196F3',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.9rem'
+                                                }}
+                                            >
+                                                ✉️
+                                            </button>
+                                        </div>
+                                    </td>
                                 </tr>
                             ))}
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
                 </div>
-    )
-}
+            )
+            }
         </div >
     );
 };
