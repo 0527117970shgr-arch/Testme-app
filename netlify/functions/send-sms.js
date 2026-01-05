@@ -9,7 +9,7 @@ export const handler = async (event) => {
         return { statusCode: 200, headers, body: 'OK' };
     }
 
-    console.log("Function send-sms [Legacy GET w/ www] started");
+    console.log("Function send-sms [v2 POST] started");
 
     try {
         const body = JSON.parse(event.body);
@@ -19,7 +19,7 @@ export const handler = async (event) => {
         const API_KEY = "OFL4Wshku";
         const USER = "OFL4Wshku";
         const PASS = "OFL4Wshku";
-        const SENDER = "TestMe"; // No spaces, Strict requirement
+        const SENDER = "TestMe";
 
         // Admin Phone
         const ADMIN_PHONE = process.env.ADMIN_PHONE;
@@ -35,15 +35,12 @@ export const handler = async (event) => {
         }
         // CASE 2: New Order Standard Flow
         else {
-            // 1. Prepare Admin Message
             if (ADMIN_PHONE) {
                 messages.push({
                     to: ADMIN_PHONE,
                     msg: `הזמנה חדשה (TestMe)!\nלקוח: ${name}\nטלפון: ${phone}\nרכב: ${cartype}\nשירות: ${service}\nמועד: ${date} ${time}`
                 });
             }
-
-            // 2. Prepare Client Message
             if (phone) {
                 messages.push({
                     to: phone,
@@ -52,20 +49,12 @@ export const handler = async (event) => {
             }
         }
 
-        // Helper to send single SMS via SMS4Free Legacy Interface
         const sendOne = async (data) => {
             let dest = data.to.replace(/\D/g, '');
+            if (dest.startsWith('972')) dest = '0' + dest.substring(3);
+            if (dest.length > 0 && !dest.startsWith('0')) dest = '0' + dest;
 
-            // Fix formatting to local 05X
-            if (dest.startsWith('972')) {
-                dest = '0' + dest.substring(3);
-            }
-            if (dest.length > 0 && !dest.startsWith('0')) {
-                dest = '0' + dest;
-            }
-
-            // User Instruction: Use URL Params in GET request.
-            // URLSearchParams handles encoding automatically (encodeURIComponent equivalent).
+            // Prepare Body Params
             const params = new URLSearchParams();
             params.append('key', API_KEY);
             params.append('user', USER);
@@ -74,26 +63,23 @@ export const handler = async (event) => {
             params.append('dest', dest);
             params.append('msg', data.msg);
 
-            // User Instruction: exact URL https://sms4free.co.il/ApiSMS/SendSMS.aspx
-            const baseUrl = 'https://sms4free.co.il/ApiSMS/SendSMS.aspx';
-            const url = `${baseUrl}?${params.toString()}`;
+            // User Instruction: exact URL https://sms4free.co.il/ApiSMS/v2/SendSMS
+            // User Instruction: Use POST. Parameters in Body.
+            const url = 'https://sms4free.co.il/ApiSMS/v2/SendSMS';
 
-            console.log(`Sending SMS to ${dest}...`);
-
-            // Log the URL structure (masked passwords) for debugging if needed
-            console.log("URL:", url.replace(PASS, '***'));
+            console.log(`Sending SMS (v2 POST) to ${dest}...`);
+            console.log(`Target URL: ${url}`);
 
             const response = await fetch(url, {
-                method: 'GET',
+                method: 'POST',
                 headers: {
-                    // Start with minimal headers for GET
-                    'Accept': '*/*'
-                }
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params
             });
 
             if (!response.ok) {
                 const text = await response.text();
-                // If 404 here, it implies the User provided URL is unreachable/wrong.
                 throw new Error(`SMS4Free HTTP ${response.status}: ${text}`);
             }
             return await response.text();
