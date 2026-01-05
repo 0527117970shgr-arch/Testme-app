@@ -13,7 +13,7 @@ export const handler = async (event) => {
 
     try {
         const body = JSON.parse(event.body);
-        const { name, phone, cartype, service, date, time } = body;
+        const { name, phone, cartype, service, date, time, customMessage, to } = body;
 
         // Configuration
         const API_KEY = "OFL4Wshku"; // Hardcoded as per strictly specific user request ("Use key OFL4Wshku")
@@ -27,20 +27,30 @@ export const handler = async (event) => {
 
         const messages = [];
 
-        // 1. Prepare Admin Message
-        if (ADMIN_PHONE) {
+        // CASE 1: Custom Admin Message
+        if (customMessage && to) {
             messages.push({
-                to: ADMIN_PHONE,
-                msg: `הזמנה חדשה (TestMe)!\nלקוח: ${name}\nטלפון: ${phone}\nרכב: ${cartype}\nשירות: ${service}\nמועד: ${date} ${time}`
+                to: to,
+                msg: customMessage
             });
         }
+        // CASE 2: New Order Standard Flow
+        else {
+            // 1. Prepare Admin Message
+            if (ADMIN_PHONE) {
+                messages.push({
+                    to: ADMIN_PHONE,
+                    msg: `הזמנה חדשה (TestMe)!\nלקוח: ${name}\nטלפון: ${phone}\nרכב: ${cartype}\nשירות: ${service}\nמועד: ${date} ${time}`
+                });
+            }
 
-        // 2. Prepare Client Message
-        if (phone) {
-            messages.push({
-                to: phone,
-                msg: `היי ${name},\nתודה שבחרת ב-TestMe! קיבלנו את הזמנתך ל${service} לרכב ${cartype}.\nאנו ניצור איתך קשר בקרוב לתיאום סופי.\nצוות TestMe`
-            });
+            // 2. Prepare Client Message
+            if (phone) {
+                messages.push({
+                    to: phone,
+                    msg: `היי ${name},\nתודה שבחרת ב-TestMe! קיבלנו את הזמנתך ל${service} לרכב ${cartype}.\nאנו ניצור איתך קשר בקרוב לתיאום סופי.\nצוות TestMe`
+                });
+            }
         }
 
         // Helper to send single SMS via SMS4Free
@@ -62,7 +72,7 @@ export const handler = async (event) => {
                 dest = '0' + dest.substring(3);
             }
             // If doesn't start with 0 (and not 972), assume 0 needs adding?
-            // Actually, if it's 50..., add 0. 
+            // Actually, if it's 50..., add 0.
             if (dest.length === 9 && !dest.startsWith('0')) dest = '0' + dest;
 
             // Constuct Query Params
@@ -74,18 +84,19 @@ export const handler = async (event) => {
             params.append('dest', dest);
             params.append('msg', data.msg);
 
-            // Using GET as requested/fallback for legacy ASPX. 
+            // Using GET as requested/fallback for legacy ASPX.
             // Note: We need to encode the message specifically if hebrew. URLSearchParams handles this.
 
             // params is already URLSearchParams object
-            const queryString = params.toString();
-            const url = `https://www.sms4free.co.il/ApiSMS/SendSMS.aspx?${queryString}`;
-
-            console.log(`Sending SMS4Free GET request...`); // Don't log full URL to avoid leaking keys in logs if user can see them
-
-            const response = await fetch(url, {
-                method: 'GET'
+            // POST to the documented endpoint
+            // Note: If 404 continues, the base URL is definitely wrong.
+            // Converting back to POST for "api" subdomain which is cleaner.
+            const response = await fetch('https://api.sms4free.co.il/ApiSMS/v2/SendSMS', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params
             });
+            // If v2 fails to 404, we will have to ask user for documentation. But trying 'api' subdomain.
 
             if (!response.ok) {
                 const text = await response.text();

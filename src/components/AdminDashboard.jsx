@@ -263,26 +263,31 @@ const AdminDashboard = () => {
                                         <div>{booking.carType}</div>
                                         <div style={{ fontSize: '0.9em', color: '#666' }}>{booking.address}</div>
                                         {booking.licensePlate && <div style={{ fontWeight: 'bold' }}>{booking.licensePlate}</div>}
-                                        {(booking.licenseImage || booking.licenseImageUrl) && (
-                                            <button
-                                                onClick={() => {
-                                                    const img = booking.licenseImage || booking.licenseImageUrl;
-                                                    const w = window.open("");
-                                                    w.document.write(`<img src="${img}" style="max-width:100%"/>`);
-                                                }}
-                                                style={{
-                                                    fontSize: '0.8rem',
-                                                    color: 'blue',
-                                                    textDecoration: 'underline',
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    padding: 0
-                                                }}
-                                            >
-                                                📷 License
-                                            </button>
-                                        )}
+                                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                            {(booking.licenseImage || booking.licenseImageUrl) && (
+                                                <button
+                                                    onClick={() => {
+                                                        const img = booking.licenseImage || booking.licenseImageUrl;
+                                                        const w = window.open("");
+                                                        w.document.write(`<img src="${img}" style="max-width:100%"/>`);
+                                                    }}
+                                                    title="View License"
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        padding: 0
+                                                    }}
+                                                >
+                                                    {/* Thumbnail preview */}
+                                                    <img
+                                                        src={booking.licenseImage || booking.licenseImageUrl}
+                                                        alt="License"
+                                                        style={{ width: '40px', height: '30px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #ccc' }}
+                                                    />
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                     <td style={{ padding: '15px', color: '#d32f2f', fontWeight: 'bold' }}>
                                         {booking.licenseExpiry || booking.testDate || '-'}
@@ -298,32 +303,25 @@ const AdminDashboard = () => {
                                     </td>
                                     <td style={{ padding: '15px' }}>{booking.service}<br />{booking.date} {booking.time}</td>
                                     <td style={{ padding: '15px' }}>
-                                        <select
-                                            value={booking.status || 'חדש'}
-                                            onChange={(e) => updateStatus(booking.id, e.target.value)}
-                                            style={{
-                                                padding: '5px',
-                                                borderRadius: '20px',
-                                                border: 'none',
-                                                backgroundColor: getStatusColor(booking.status || 'חדש'),
-                                                color: 'white',
-                                                fontWeight: 'bold',
-                                                cursor: 'pointer'
+                                        color: 'white',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
                                             }}
                                         >
-                                            <option value="חדש" style={{ color: 'black' }}>{tAdmin.status.new}</option>
-                                            <option value="בטיפול" style={{ color: 'black' }}>{tAdmin.status.in_progress}</option>
-                                            <option value="הושלם" style={{ color: 'black' }}>{tAdmin.status.completed}</option>
-                                            <option value="בוטל" style={{ color: 'black' }}>{tAdmin.status.cancelled}</option>
-                                        </select>
-                                    </td>
+                                        <option value="חדש" style={{ color: 'black' }}>{tAdmin.status.new}</option>
+                                        <option value="בטיפול" style={{ color: 'black' }}>{tAdmin.status.in_progress}</option>
+                                        <option value="הושלם" style={{ color: 'black' }}>{tAdmin.status.completed}</option>
+                                        <option value="בוטל" style={{ color: 'black' }}>{tAdmin.status.cancelled}</option>
+                                    </select>
+                                </td>
                                 </tr>
                             ))}
-                        </tbody>
-                    </table>
+                    </tbody>
+                </table>
                 </div>
-            )}
-        </div>
+    )
+}
+        </div >
     );
 };
 
