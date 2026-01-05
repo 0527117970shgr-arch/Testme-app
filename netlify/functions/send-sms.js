@@ -1,5 +1,8 @@
+import { request } from 'https';
+import { Buffer } from 'buffer';
+
 export const handler = async (event) => {
-    // Enable CORS just in case, though same-origin
+    // Enable CORS
     const headers = {
         'Access-Control-Allow-Origin': '*',
         'Content-Type': 'application/json'
@@ -13,13 +16,13 @@ export const handler = async (event) => {
         return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
     }
 
-    console.log("Function send-sms started");
+    console.log("Function send-sms [HTTPS] started");
 
     try {
         const body = JSON.parse(event.body);
         const { name, phone, cartype, address, service, date, time } = body;
 
-        // Use process.env directly (Netlify injects these in production)
+        // Use process.env directly
         const {
             TWILIO_ACCOUNT_SID,
             TWILIO_AUTH_TOKEN,
@@ -56,51 +59,69 @@ export const handler = async (event) => {
 
         console.log(`Sending ${messages.length} messages...`);
 
-        // Helper to send single SMS
-        const sendOne = async ({ to, body }) => {
-            // Clean number
-            let cleanPhone = to.replace(/\D/g, '');
-            if (cleanPhone.startsWith('0')) cleanPhone = '+972' + cleanPhone.substring(1);
-            if (!cleanPhone.startsWith('+')) cleanPhone = '+' + cleanPhone;
+        // Helper to send single SMS using native HTTPS (Node Standard Lib)
+        const sendOne = (msg) => {
+            return new Promise((resolve, reject) => {
+                let cleanPhone = msg.to.replace(/\D/g, '');
+                if (cleanPhone.startsWith('0')) cleanPhone = '+972' + cleanPhone.substring(1);
+                if (!cleanPhone.startsWith('+')) cleanPhone = '+' + cleanPhone;
 
-            const params = new URLSearchParams();
-            params.append('To', cleanPhone);
-            params.append('From', TWILIO_FROM_PHONE);
-            params.append('Body', body);
+                const postData = new URLSearchParams({
+                    'To': cleanPhone,
+                    'From': TWILIO_FROM_PHONE,
+                    'Body': msg.body
+                }).toString();
 
-            const auth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
+                const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
 
-            const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Basic ${auth}`,
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: params
+                const options = {
+                    hostname: 'api.twilio.com',
+                    path: `/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Basic ${auth}`,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Content-Length': Buffer.byteLength(postData)
+                    }
+                };
+
+                const req = request(options, (res) => {
+                    let data = '';
+                    res.on('data', (chunk) => data += chunk);
+                    res.on('end', () => {
+                        if (res.statusCode >= 200 && res.statusCode < 300) {
+                            resolve(JSON.parse(data));
+                        } else {
+                            reject(new Error(`Twilio Status ${res.statusCode}: ${data}`));
+                        }
+                    });
+                });
+
+                req.on('error', (e) => reject(e));
+                req.write(postData);
+                req.end();
             });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`Twilio Error: ${response.status} ${text}`);
-            }
-            return response.json();
         };
 
-        // Send all in parallel
-        const results = await Promise.allSettled(messages.map(sendOne));
-
-        // Check results
-        const failures = results.filter(r => r.status === 'rejected');
-        if (failures.length > 0) {
-            console.error("Some SMS failed:", failures);
-            // If ALL failed, return error
-            if (failures.length === messages.length) {
-                return {
-                    statusCode: 502, // Upstream error
-                    headers,
-                    body: JSON.stringify({ error: "Failed to send SMS via Twilio", details: failures.map(f => f.reason.message) })
-                };
+        // Send sequentially to avoid any promise complexity issues in old Node
+        const results = [];
+        for (const msg of messages) {
+            try {
+                const res = await sendOne(msg);
+                results.push({ status: 'fulfilled', value: res });
+            } catch (err) {
+                console.error("SMS Failed:", err);
+                results.push({ status: 'rejected', reason: err });
             }
+        }
+
+        const failures = results.filter(r => r.status === 'rejected');
+        if (failures.length > 0 && failures.length === messages.length) {
+            return {
+                statusCode: 502,
+                headers,
+                body: JSON.stringify({ error: "All SMS failed", details: failures.map(f => f.reason.message) })
+            };
         }
 
         return {

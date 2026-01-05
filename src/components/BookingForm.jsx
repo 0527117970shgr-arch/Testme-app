@@ -131,10 +131,14 @@ const BookingForm = () => {
 
     const sendSmsToAdmin = async (data) => {
         try {
+            // Strip heavy image data before sending to SMS function (reduces payload size)
+            // eslint-disable-next-line no-unused-vars
+            const { licenseImage, licenseImageUrl, ...smsData } = data;
+
             await fetch('/.netlify/functions/send-sms', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify(smsData)
             });
         } catch (error) {
             console.error("Network Error calling Function:", error);
