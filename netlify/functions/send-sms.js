@@ -74,8 +74,8 @@ export const handler = async (event) => {
             params.append('dest', dest);
             params.append('msg', data.msg);
 
-            // User Instruction: exact URL https://www.sms4free.co.il/ApiSMS/SendSMS.aspx
-            const baseUrl = 'https://www.sms4free.co.il/ApiSMS/SendSMS.aspx';
+            // User Instruction: exact URL https://sms4free.co.il/ApiSMS/SendSMS.aspx
+            const baseUrl = 'https://sms4free.co.il/ApiSMS/SendSMS.aspx';
             const url = `${baseUrl}?${params.toString()}`;
 
             console.log(`Sending SMS to ${dest}...`);
