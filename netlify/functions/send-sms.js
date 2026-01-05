@@ -9,7 +9,7 @@ export const handler = async (event) => {
         return { statusCode: 200, headers, body: 'OK' };
     }
 
-    console.log("Function send-sms [SMS4Free GET V5] started");
+    console.log("Function send-sms [Legacy GET w/ www] started");
 
     try {
         const body = JSON.parse(event.body);
@@ -19,7 +19,7 @@ export const handler = async (event) => {
         const API_KEY = "OFL4Wshku";
         const USER = "OFL4Wshku";
         const PASS = "OFL4Wshku";
-        const SENDER = "TestMe"; // No spaces
+        const SENDER = "TestMe"; // No spaces, Strict requirement
 
         // Admin Phone
         const ADMIN_PHONE = process.env.ADMIN_PHONE;
@@ -52,7 +52,7 @@ export const handler = async (event) => {
             }
         }
 
-        // Helper to send single SMS via SMS4Free
+        // Helper to send single SMS via SMS4Free Legacy Interface
         const sendOne = async (data) => {
             let dest = data.to.replace(/\D/g, '');
 
@@ -64,7 +64,8 @@ export const handler = async (event) => {
                 dest = '0' + dest;
             }
 
-            // Construct Form Data
+            // User Instruction: Use URL Params in GET request.
+            // URLSearchParams handles encoding automatically (encodeURIComponent equivalent).
             const params = new URLSearchParams();
             params.append('key', API_KEY);
             params.append('user', USER);
@@ -73,24 +74,26 @@ export const handler = async (event) => {
             params.append('dest', dest);
             params.append('msg', data.msg);
 
-            // User Instruction: Use https://www.sms4free.co.il/ApiSMS/SendSMS.aspx
-            // User Instruction: Use POST only.
-            // User Instruction: Send as x-www-form-urlencoded.
-            const url = 'https://www.sms4free.co.il/ApiSMS/SendSMS.aspx';
+            // User Instruction: exact URL https://www.sms4free.co.il/ApiSMS/SendSMS.aspx
+            const baseUrl = 'https://www.sms4free.co.il/ApiSMS/SendSMS.aspx';
+            const url = `${baseUrl}?${params.toString()}`;
 
-            console.log(`Sending SMS (Legacy POST) to ${dest}...`);
+            console.log(`Sending SMS (Legacy GET) to ${dest}...`);
+
+            // Log the URL structure (masked passwords) for debugging if needed
+            // console.log("URL:", url.replace(PASS, '***'));
 
             const response = await fetch(url, {
-                method: 'POST',
+                method: 'GET',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-                },
-                body: params
+                    // Start with minimal headers for GET
+                    'Accept': '*/*'
+                }
             });
 
             if (!response.ok) {
                 const text = await response.text();
-                // 405 means Method Not Allowed, hopefully POST works for .aspx
+                // If 404 here, it implies the User provided URL is unreachable/wrong.
                 throw new Error(`SMS4Free HTTP ${response.status}: ${text}`);
             }
             return await response.text();
