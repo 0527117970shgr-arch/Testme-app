@@ -1,6 +1,3 @@
-import { request } from 'https';
-import { Buffer } from 'buffer';
-
 export const handler = async (event) => {
     // Enable CORS
     const headers = {
@@ -12,30 +9,27 @@ export const handler = async (event) => {
         return { statusCode: 200, headers, body: 'OK' };
     }
 
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-    }
-
-    console.log("Function send-sms [HTTPS] started");
+    console.log("Function send-sms [Fetch V4] started");
 
     try {
         const body = JSON.parse(event.body);
-        const { name, phone, cartype, address, service, date, time } = body;
+        const { name, phone, cartype, service, date, time } = body;
 
-        // Use process.env directly
-        const {
-            TWILIO_ACCOUNT_SID,
-            TWILIO_AUTH_TOKEN,
-            TWILIO_FROM_PHONE,
-            ADMIN_PHONE
-        } = process.env;
+        // Clean env vars (remove potential quotes or whitespace)
+        const cleanEnv = (key) => process.env[key] ? process.env[key].replace(/["']/g, '').trim() : '';
+
+        const TWILIO_ACCOUNT_SID = cleanEnv('TWILIO_ACCOUNT_SID');
+        const TWILIO_AUTH_TOKEN = cleanEnv('TWILIO_AUTH_TOKEN');
+        const TWILIO_FROM_PHONE = cleanEnv('TWILIO_FROM_PHONE');
+        const ADMIN_PHONE = cleanEnv('ADMIN_PHONE');
 
         if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_PHONE) {
-            console.error("Missing configuration");
+            console.error("Missing Twilio Configuration");
+            // Return 200 so fontend doesn't panic, but log error
             return {
-                statusCode: 500,
+                statusCode: 200,
                 headers,
-                body: JSON.stringify({ error: "Server configuration missing" })
+                body: JSON.stringify({ success: false, error: "Server configuration missing" })
             };
         }
 
@@ -57,70 +51,52 @@ export const handler = async (event) => {
             });
         }
 
-        console.log(`Sending ${messages.length} messages...`);
+        // Helper to send single SMS via Fetch
+        const sendOne = async (msg) => {
+            let cleanPhone = msg.to.replace(/\D/g, '');
+            if (cleanPhone.startsWith('0')) cleanPhone = '+972' + cleanPhone.substring(1);
+            if (!cleanPhone.startsWith('+')) cleanPhone = '+' + cleanPhone;
 
-        // Helper to send single SMS using native HTTPS (Node Standard Lib)
-        const sendOne = (msg) => {
-            return new Promise((resolve, reject) => {
-                let cleanPhone = msg.to.replace(/\D/g, '');
-                if (cleanPhone.startsWith('0')) cleanPhone = '+972' + cleanPhone.substring(1);
-                if (!cleanPhone.startsWith('+')) cleanPhone = '+' + cleanPhone;
+            const params = new URLSearchParams();
+            params.append('To', cleanPhone);
+            params.append('From', TWILIO_FROM_PHONE);
+            params.append('Body', msg.body);
 
-                const postData = new URLSearchParams({
-                    'To': cleanPhone,
-                    'From': TWILIO_FROM_PHONE,
-                    'Body': msg.body
-                }).toString();
+            // Use global Buffer for Auth
+            const auth = global.Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
 
-                const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
-
-                const options = {
-                    hostname: 'api.twilio.com',
-                    path: `/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Basic ${auth}`,
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'Content-Length': Buffer.byteLength(postData)
-                    }
-                };
-
-                const req = request(options, (res) => {
-                    let data = '';
-                    res.on('data', (chunk) => data += chunk);
-                    res.on('end', () => {
-                        if (res.statusCode >= 200 && res.statusCode < 300) {
-                            resolve(JSON.parse(data));
-                        } else {
-                            reject(new Error(`Twilio Status ${res.statusCode}: ${data}`));
-                        }
-                    });
-                });
-
-                req.on('error', (e) => reject(e));
-                req.write(postData);
-                req.end();
+            const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Basic ${auth}`,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params
             });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`${response.status}: ${text}`);
+            }
+            return response.json();
         };
 
-        // Send sequentially to avoid any promise complexity issues in old Node
-        const results = [];
+        // Send sequentially
+        const errors = [];
         for (const msg of messages) {
             try {
-                const res = await sendOne(msg);
-                results.push({ status: 'fulfilled', value: res });
+                await sendOne(msg);
             } catch (err) {
-                console.error("SMS Failed:", err);
-                results.push({ status: 'rejected', reason: err });
+                console.error("SMS Failed:", err.message);
+                errors.push(err.message);
             }
         }
 
-        const failures = results.filter(r => r.status === 'rejected');
-        if (failures.length > 0 && failures.length === messages.length) {
+        if (errors.length > 0) {
             return {
-                statusCode: 502,
+                statusCode: 200, // Return 200 even on partial failure to avoid "Crash" UI
                 headers,
-                body: JSON.stringify({ error: "All SMS failed", details: failures.map(f => f.reason.message) })
+                body: JSON.stringify({ success: false, errors: errors })
             };
         }
 
@@ -133,7 +109,7 @@ export const handler = async (event) => {
     } catch (error) {
         console.error("Fatal Handler Error:", error);
         return {
-            statusCode: 500,
+            statusCode: 500, // Real crash
             headers,
             body: JSON.stringify({ error: "Internal Server Error", details: error.message })
         };
