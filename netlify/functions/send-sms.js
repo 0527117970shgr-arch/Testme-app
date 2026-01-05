@@ -64,6 +64,7 @@ export const handler = async (event) => {
                 dest = '0' + dest;
             }
 
+            // Construct Form Data
             const params = new URLSearchParams();
             params.append('key', API_KEY);
             params.append('user', USER);
@@ -72,19 +73,25 @@ export const handler = async (event) => {
             params.append('dest', dest);
             params.append('msg', data.msg);
 
-            // Use GET request on v2 API (or .aspx if v2 fails, but keeping v2 on api subdomain is best guess)
-            // Using URLSearchParams.toString() ensures Message is encoded properly.
-            const url = `https://api.sms4free.co.il/ApiSMS/v2/SendSMS?${params.toString()}`;
+            // User Instruction: Use https://www.sms4free.co.il/ApiSMS/SendSMS.aspx
+            // User Instruction: Use POST only.
+            // User Instruction: Send as x-www-form-urlencoded.
+            const url = 'https://www.sms4free.co.il/ApiSMS/SendSMS.aspx';
 
-            console.log(`Sending SMS check (SENDER=${SENDER}, DEST=${dest})...`);
+            console.log(`Sending SMS (Legacy POST) to ${dest}...`);
 
             const response = await fetch(url, {
-                method: 'GET'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                },
+                body: params
             });
 
             if (!response.ok) {
                 const text = await response.text();
-                throw new Error(`SMS4Free Error ${response.status}: ${text}`);
+                // 405 means Method Not Allowed, hopefully POST works for .aspx
+                throw new Error(`SMS4Free HTTP ${response.status}: ${text}`);
             }
             return await response.text();
         };

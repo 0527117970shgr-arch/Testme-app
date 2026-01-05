@@ -25,22 +25,28 @@ export const handler = async (event) => {
             apiKey: process.env.OPENAI_API_KEY,
         });
 
-        // Prompt for GPT-4 Vision
+        // Prompt for GPT-4 Vision with Strict Protocols
         const prompt = `
         Analyze this image of an Israeli vehicle license (Rishayon Rechev).
-        Extract these SPECIFIC fields in JSON format:
-        1. "licensePlate" - The vehicle number (XXX-XX-XXX).
-        2. "carType" - The car model/make (e.g., Mazda 3).
-        3. "licenseExpiry" - The "Valid Until / בתוקף עד" date (DD/MM/YYYY).
-        4. "name" - The Owner Name (בעלים). Usually at the top right, under "בעלים ושמן" or similar.
+        Follow this strict protocol:
+        
+        1. **Structure Detection**: Locate headers 'מספר רכב' (Vehicle Number), 'דגם' (Model), 'בעלים' (Owner), 'בתוקף עד' (Valid Until), 'תאריך מבחן' (Test Date).
+        
+        2. **Value Extraction Rules**:
+           - **licensePlate**: Look for the number inside the yellow box or under 'מספר רכב'. IT MUST BE 7 OR 8 DIGITS. 
+             * CORRECTION: If you see letters 'O', 'I', 'Z', 'S', replace them with '0', '1', '7', '5' respectively. 
+             * FILTER: Remove any hyphens or spaces. Return ONLY digits.
+           - **carType**: The model name (e.g., 'Mazda 3', 'Toyota Corolla').
+           - **licenseExpiry**: The date under 'בתוקף עד' (Valid Until). Format: DD/MM/YYYY.
+           - **testDate**: The date under 'תאריך מבחן'. Format: DD/MM/YYYY.
+           - **name**: The owner's name. Usually very top right or under 'בעלים'.
 
-        CRITICAL SCANNING INSTRUCTIONS:
-        - Owner Name (בעלים): Look for the name of the person or company. It is usually the first line or near "בעלים". Example: "ישראל ישראלי" or "חברה בעמ".
-        - License Plate (מספר רכב): Look for the main license plate number (yellow box or clear digits).
-        - Expiry (בתוקף עד): The date the license is valid until.
+        3. **Validation**:
+           - If 'licensePlate' found is NOT 7 or 8 digits after cleaning, set it to null. Do not guess.
+           - Cross-reference 'licenseExpiry' and 'testDate' to ensure year accuracy if possible.
 
         Return ONLY raw JSON.
-        Example: { "licensePlate": "123-45-678", "carType": "Mazda 3", "licenseExpiry": "01/01/2025", "name": "ישראל ישראלי" }
+        Example: { "licensePlate": "12345678", "carType": "Mazda 3", "licenseExpiry": "01/01/2025", "name": "ישראל ישראלי" }
         `;
 
         const response = await openai.chat.completions.create({

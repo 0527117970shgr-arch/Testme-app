@@ -114,11 +114,16 @@ const BookingForm = () => {
                 carType: carType || prev.carType
             }));
 
-            // Alert user (Could be improved to use a UI modal/toast instead of alert for better localization, but keeping simple for now)
-            if (licensePlate || testDate || name || licenseExpiry || carType) {
-                alert(`OCR Complete!\nDetected:\nPlate: ${licensePlate || 'N/A'}\nName: ${name || 'N/A'}\nType: ${carType || 'N/A'}\nExpiry: ${licenseExpiry || testDate || 'N/A'}`);
+            // Alert user based on strict validation
+            const validPlate = licensePlate && (licensePlate.length === 7 || licensePlate.length === 8);
+
+            if (validPlate) {
+                alert(`OCR Success!\nDetected:\nPlate: ${licensePlate}\nName: ${name || 'N/A'}\nExpiry: ${formattedExpiry || 'N/A'}`);
+            } else if (licensePlate) {
+                // Plate found but invalid length (should have been nullified by backend but just in case)
+                alert(`OCR Warning: Detected plate "${licensePlate}" is invalid (must be 7-8 digits). Please correct manually.`);
             } else {
-                alert("OCR Complete, but no specific details found. Please fill manually.");
+                alert("OCR Scan: Could not identify a valid 7-8 digit license plate. Please enter details manually or retake photo without glare.");
             }
             setStatus('');
 
