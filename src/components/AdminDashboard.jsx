@@ -263,10 +263,25 @@ const AdminDashboard = () => {
                                         <div>{booking.carType}</div>
                                         <div style={{ fontSize: '0.9em', color: '#666' }}>{booking.address}</div>
                                         {booking.licensePlate && <div style={{ fontWeight: 'bold' }}>{booking.licensePlate}</div>}
-                                        {booking.licenseImageUrl && (
-                                            <a href={booking.licenseImageUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem', color: 'blue', textDecoration: 'underline' }}>
+                                        {(booking.licenseImage || booking.licenseImageUrl) && (
+                                            <button
+                                                onClick={() => {
+                                                    const img = booking.licenseImage || booking.licenseImageUrl;
+                                                    const w = window.open("");
+                                                    w.document.write(`<img src="${img}" style="max-width:100%"/>`);
+                                                }}
+                                                style={{
+                                                    fontSize: '0.8rem',
+                                                    color: 'blue',
+                                                    textDecoration: 'underline',
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    padding: 0
+                                                }}
+                                            >
                                                 📷 License
-                                            </a>
+                                            </button>
                                         )}
                                     </td>
                                     <td style={{ padding: '15px', color: '#d32f2f', fontWeight: 'bold' }}>

@@ -170,31 +170,24 @@ const BookingForm = () => {
                 'bodywork': 'שירותי פחחות'
             };
 
-            // Add helper for storage upload
-            const uploadLicenseImage = async (fileOrBlob) => {
-                if (!fileOrBlob) return '';
-                try {
-                    const storageRef = ref(storage, `licenses/${Date.now()}_${fileOrBlob.name || 'license.jpg'}`);
-                    const snapshot = await uploadBytes(storageRef, fileOrBlob);
-                    return await getDownloadURL(snapshot.ref);
-                } catch (error) {
-                    console.error("Upload failed:", error);
-                    return '';
-                }
-            };
-
-            // In handleSubmit, before creating dbData:
-            let imageUrl = '';
+            // Compress image to Base64 for storage (Max 500KB usually safe for Firestore)
+            let imageBase64 = '';
             if (licenseImage) {
-                // We can upload the original file or the compressed one. 
-                // Simple: upload the original file from state `licenseImage`
-                imageUrl = await uploadLicenseImage(licenseImage);
+                try {
+                    // We reuse compressImage but ensure we get the full Data URL or handle the split result
+                    // compressImage returns result.split(',')[1] (raw base64)
+                    // We want the prefix for display
+                    const rawBase64 = await compressImage(licenseImage);
+                    imageBase64 = `data:image/jpeg;base64,${rawBase64}`;
+                } catch (err) {
+                    console.error("Compression failed:", err);
+                }
             }
 
             const dbData = {
                 ...finalData,
                 service: serviceMap[finalData.service] || finalData.service,
-                licenseImageUrl: imageUrl,
+                licenseImage: imageBase64, // Store directly in DB
                 timestamp: new Date(),
                 status: 'חדש',
                 reminderQueueDate: finalData.licenseExpiry ? (() => {
@@ -281,6 +274,18 @@ const BookingForm = () => {
                 </div>
 
                 <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'block', margin: '15px auto' }} />
+
+                {licenseImage && (
+                    <div style={{ textAlign: 'center', margin: '10px 0' }}>
+                        <p style={{ fontSize: '0.8rem', marginBottom: '5px' }}>Preview:</p>
+                        <img
+                            src={URL.createObjectURL(licenseImage)}
+                            alt="License Preview"
+                            style={{ maxWidth: '100%', maxHeight: '150px', borderRadius: '5px', border: '1px solid #ccc' }}
+                        />
+                    </div>
+                )}
+
                 {status === 'ocr_processing' && <p style={{ color: 'blue', marginTop: '5px', fontWeight: 'bold' }}>{t('form.processing')}</p>}
             </div>
 
