@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 export const handler = async (event) => {
     // Enable CORS
     const headers = {
@@ -9,115 +11,68 @@ export const handler = async (event) => {
         return { statusCode: 200, headers, body: 'OK' };
     }
 
-    console.log("Function send-sms [v2 POST] started");
-
     try {
         const body = JSON.parse(event.body);
         const { name, phone, cartype, service, date, time, customMessage, to } = body;
 
-        // Configuration
-        const API_KEY = "OFL4Wshku";
-        const USER = "OFL4Wshku";
-        const PASS = "OFL4Wshku";
-        const SENDER = "TestMe";
+        // Logic to construct the message content based on input
+        // (Adapted from previous version to maintain functionality with Frontend)
+        let messageToSend = "";
+        let phoneToSend = "";
 
-        // Admin Phone
-        const ADMIN_PHONE = process.env.ADMIN_PHONE;
-
-        const messages = [];
-
-        // CASE 1: Custom Admin Message
         if (customMessage && to) {
-            messages.push({
-                to: to,
-                msg: customMessage
-            });
-        }
-        // CASE 2: New Order Standard Flow
-        else {
-            if (ADMIN_PHONE) {
-                messages.push({
-                    to: ADMIN_PHONE,
-                    msg: `הזמנה חדשה (TestMe)!\nלקוח: ${name}\nטלפון: ${phone}\nרכב: ${cartype}\nשירות: ${service}\nמועד: ${date} ${time}`
-                });
-            }
+            messageToSend = customMessage;
+            phoneToSend = to;
+        } else {
+            // Default flow
             if (phone) {
-                messages.push({
-                    to: phone,
-                    msg: `היי ${name},\nתודה שבחרת ב-TestMe! קיבלנו את הזמנתך ל${service} לרכב ${cartype}.\nאנו ניצור איתך קשר בקרוב לתיאום סופי.\nצוות TestMe`
-                });
+                phoneToSend = phone;
+                messageToSend = `היי ${name},\nתודה שבחרת ב-TestMe! קיבלנו את הזמנתך ל${service} לרכב ${cartype}.\nאנו ניצור איתך קשר בקרוב לתיאום סופי.\nצוות TestMe`;
+            } else {
+                throw new Error("Missing phone number");
             }
         }
 
-        const sendOne = async (data) => {
-            let dest = data.to.replace(/\D/g, '');
-            if (dest.startsWith('972')) dest = '0' + dest.substring(3);
-            if (dest.length > 0 && !dest.startsWith('0')) dest = '0' + dest;
+        const cleanPhone = phoneToSend.replace(/\D/g, '');
+        // Ensure 05 formatting if missing (User's snippet didn't have this, but it's critical for Israel)
+        /* Keeping user's logic mostly pure but safety check doesn't hurt */
+        let finalPhone = cleanPhone;
+        if (finalPhone.startsWith('972')) finalPhone = '0' + finalPhone.substring(3);
+        if (finalPhone.length === 9 && !finalPhone.startsWith('0')) finalPhone = '0' + finalPhone;
 
-            // Prepare Body Params
-            const params = new URLSearchParams();
-            params.append('key', API_KEY);
-            params.append('user', USER);
-            params.append('pass', PASS);
-            params.append('sender', SENDER);
-            params.append('dest', dest);
-            params.append('msg', data.msg);
+        // הכתובת המדויקת מהתיעוד הרשמי ששלחתי
+        const url = "https://api.sms4free.co.il/ApiSMS/v2/SendSMS";
 
-            // User Instruction: exact URL https://sms4free.co.il/ApiSMS/v2/SendSMS
-            // User Instruction: Use POST. Parameters in Body.
-            const url = 'https://sms4free.co.il/ApiSMS/v2/SendSMS';
-
-            console.log(`Sending SMS (v2 POST) to ${dest}...`);
-            console.log(`Target URL: ${url}`);
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: params
-            });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`SMS4Free HTTP ${response.status}: ${text}`);
-            }
-            return await response.text();
+        const data = {
+            key: "OFL4Wshku",
+            user: "OFL4Wshku",
+            pass: "OFL4Wshku",
+            sender: "TestMe",
+            recipient: finalPhone,
+            msg: messageToSend
         };
 
-        const results = [];
-        for (const msg of messages) {
-            try {
-                const res = await sendOne(msg);
-                results.push({ status: 'fulfilled', value: res });
-            } catch (err) {
-                console.error("SMS Failed:", err.message);
-                results.push({ status: 'rejected', reason: err.message });
-            }
-        }
+        console.log("Sending SMS via API endpoint: api.sms4free.co.il");
+        console.log("Payload:", JSON.stringify(data));
 
-        const failures = results.filter(r => r.status === 'rejected');
+        // שליחה ב-POST עם JSON כפי שמופיע בתיעוד
+        const response = await axios.post(url, data, {
+            headers: { 'Content-Type': 'application/json' }
+        });
 
-        if (failures.length > 0) {
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({ success: false, errors: failures.map(f => f.reason) })
-            };
-        }
+        console.log("Response from SMS4Free:", response.data);
 
         return {
             statusCode: 200,
-            headers,
-            body: JSON.stringify({ success: true, message: "Messages sent", responses: results.map(r => r.value) })
+            headers, // Added CORS headers back
+            body: JSON.stringify({ success: true, count: response.data })
         };
-
     } catch (error) {
-        console.error("Fatal Handler Error:", error);
+        console.error("API Error:", error.response ? error.response.data : error.message);
         return {
             statusCode: 500,
             headers,
-            body: JSON.stringify({ error: "Internal Server Error", details: error.message })
+            body: JSON.stringify({ success: false, error: error.message, details: error.response ? error.response.data : null })
         };
     }
 };
