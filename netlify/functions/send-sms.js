@@ -75,7 +75,7 @@ export const handler = async (event) => {
             params.append('msg', data.msg);
 
             // Using POST to avoid URL length limits on 'msg'
-            const response = await fetch('https://www.sms4free.co.il/ApiSMS/v2/SendSMS', {
+            const response = await fetch('https://www.sms4free.co.il/ApiSMS/SendSMS.aspx', {
                 method: 'POST', // or GET? User said GET or POST. POST is safer for msg content.
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded' // Expected for "Query Parameters" style body often
