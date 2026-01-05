@@ -74,13 +74,17 @@ export const handler = async (event) => {
             params.append('dest', dest);
             params.append('msg', data.msg);
 
-            // Using POST to avoid URL length limits on 'msg'
-            const response = await fetch('https://www.sms4free.co.il/ApiSMS/SendSMS.aspx', {
-                method: 'POST', // or GET? User said GET or POST. POST is safer for msg content.
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded' // Expected for "Query Parameters" style body often
-                },
-                body: params
+            // Using GET as requested/fallback for legacy ASPX. 
+            // Note: We need to encode the message specifically if hebrew. URLSearchParams handles this.
+
+            // params is already URLSearchParams object
+            const queryString = params.toString();
+            const url = `https://www.sms4free.co.il/ApiSMS/SendSMS.aspx?${queryString}`;
+
+            console.log(`Sending SMS4Free GET request...`); // Don't log full URL to avoid leaking keys in logs if user can see them
+
+            const response = await fetch(url, {
+                method: 'GET'
             });
 
             if (!response.ok) {
