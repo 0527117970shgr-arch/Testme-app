@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 
 const Header = ({ onToggleChat }) => {
@@ -17,11 +18,13 @@ const Header = ({ onToggleChat }) => {
             zIndex: 100,
             boxShadow: 'var(--shadow-md)'
         }}>
-            <div className="logo" style={{
+            <Link to="/" className="logo" style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                textDecoration: 'none',
+                cursor: 'pointer'
             }}>
                 <div style={{
                     backgroundColor: 'var(--color-primary)',
@@ -37,7 +40,7 @@ const Header = ({ onToggleChat }) => {
                     <span style={{ fontSize: '1.2rem', fontWeight: '800' }}>me</span>
                 </div>
                 <span style={{ fontSize: '1.5rem', color: 'var(--color-primary)' }}>{t('header.subtitle')}</span>
-            </div>
+            </Link>
 
             <nav style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
                 <ul style={{ display: 'flex', gap: '2rem', listStyle: 'none', margin: 0, padding: 0 }}>

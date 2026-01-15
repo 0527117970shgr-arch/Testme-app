@@ -25,12 +25,15 @@ export const handler = async (event) => {
         };
 
         console.log("Sending SMS via Axios to:", url);
+        console.log("Axios Loaded:", !!axios);
 
         const res = await axios.post(url, data); // Default content-type is json
+        console.log("Axios Response Status:", res.status);
 
         return { statusCode: 200, body: JSON.stringify({ success: true, data: res.data }) };
     } catch (e) {
-        console.error("Axios Error:", e.message);
-        return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
+        console.error("Axios Error Full:", e);
+        console.error("Axios Response Data:", e.response?.data);
+        return { statusCode: 500, body: JSON.stringify({ error: e.message, details: e.response?.data }) };
     }
 };
