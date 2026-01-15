@@ -18,6 +18,12 @@ export const handler = async (event) => {
 
     console.log("Starting SMS Function (Native Fetch Clean Rewrite)");
 
+    // Debug: Check if Env Vars are loaded
+    console.log("Auth Config Check:");
+    console.log("- SMS_KEY:", process.env.SMS_KEY ? "LOADED" : "MISSING");
+    console.log("- SMS_USER:", process.env.SMS_USER ? "LOADED" : "MISSING");
+    console.log("- SMS_PASS:", process.env.SMS_PASS ? "LOADED" : "MISSING");
+
     try {
         // 3. Parse Body
         if (!event.body) throw new Error("Missing Request Body");
@@ -37,11 +43,11 @@ export const handler = async (event) => {
         // 5. Clean Phone Number
         const cleanPhone = phone.replace(/\D/g, '');
 
-        // 6. Prepare Payload (User's Exact Credentials)
+        // 6. Prepare Payload (Environment Variables)
         const payload = {
-            key: "OFL4Wshku",
-            user: "OFL4Wshku",
-            pass: "OFL4Wshku",
+            key: process.env.SMS_KEY,
+            user: process.env.SMS_USER,
+            pass: process.env.SMS_PASS,
             sender: "TestMe",
             recipient: cleanPhone,
             msg: message || "Test Message"
