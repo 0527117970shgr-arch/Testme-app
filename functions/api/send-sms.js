@@ -36,52 +36,48 @@ export default {
             // 4. Clean Phone Number
             const cleanPhone = phone.replace(/\D/g, '');
 
-            // 5. Env Vars from 'env' object (Worker standard)
-            const payload = {
-                key: env.SMS_KEY,
-                user: env.SMS_USER,
-                pass: env.SMS_PASS,
-                sender: env.SMS_SENDER || "TestMe",
-                dest: cleanPhone,
-                msg: message || "Test Message"
-            };
+            // 5. Env Vars (Free4SMS config)
+            const apiUser = env.FREE4_USER;
+            const apiPass = env.FREE4_PASS;
+            const apiSender = env.FREE4_SENDER || 'TestMe'; // Default sender
 
-            const url = "https://api.sms4free.co.il/ApiSMS/v2/SendSMS";
+            if (!apiUser || !apiPass) {
+                throw new Error("Missing Free4SMS Credentials (FREE4_USER/FREE4_PASS)");
+            }
 
-            console.log(`Sending to ${cleanPhone} via ${url}`);
+            // 6. Prepare Payload (Form Data)
+            // Free4SMS (PHP interface) usually expects Query Params or Form Data
+            const params = new URLSearchParams();
+            params.append('user', apiUser);
+            params.append('pass', apiPass);
+            params.append('sender', apiSender);
+            params.append('recipient', cleanPhone); // 'recipient' is common, check if 'dest' is needed? User said 'user, pass, msg'
+            params.append('msg', message); // Auto-encoded by URLSearchParams
 
-            // 6. Execute Request
+            // Use HTTPS if possible
+            const url = "https://api.free4sms.co.il/send_sms.php";
+
+            console.log(`Sending to ${cleanPhone} via ${url} with User: ${apiUser}`);
+
+            // 7. Execute Request (POST x-www-form-urlencoded)
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: JSON.stringify(payload)
+                body: params
             });
 
             console.log("Upstream Status:", response.status);
+            const responseText = await response.text();
+            console.log("Upstream Data:", responseText);
 
-            // 7. Handle Response
-            let responseData;
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-                responseData = await response.json();
-            } else {
-                responseData = await response.text();
-            }
-
-            if (!response.ok) {
-                return new Response(JSON.stringify({
-                    success: false,
-                    error: `Upstream Error ${response.status}`,
-                    details: responseData
-                }), { status: 200, headers });
-            }
+            // Free4SMS usually returns numeric status or text info
 
             return new Response(JSON.stringify({
                 success: true,
-                data: responseData
+                provider: 'Free4SMS',
+                data: responseText
             }), { status: 200, headers });
 
         } catch (error) {
@@ -90,7 +86,7 @@ export default {
                 success: false,
                 error: error.message,
                 stack: error.stack
-            }), { status: 200, headers }); // Return 200 to allow frontend to handle gracefully
+            }), { status: 200, headers });
         }
     }
 };
