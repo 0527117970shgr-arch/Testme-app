@@ -140,7 +140,7 @@ const BookingForm = () => {
             // eslint-disable-next-line no-unused-vars
             const { licenseImage, licenseImageUrl, ...smsData } = data;
 
-            await fetch('/.netlify/functions/send-sms', {
+            await fetch('/api/send-sms', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(smsData)

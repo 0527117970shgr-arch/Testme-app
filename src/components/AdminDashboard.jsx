@@ -327,7 +327,7 @@ const AdminDashboard = () => {
                                                     const msg = prompt(`Send SMS to ${booking.name}:`, "שלום, הרכב שלך מוכן.");
                                                     if (msg) {
                                                         const to = booking.phone.replace(/\D/g, '').replace(/^0/, '972');
-                                                        fetch('/.netlify/functions/send-sms', {
+                                                        fetch('/api/send-sms', {
                                                             method: 'POST',
                                                             headers: { 'Content-Type': 'application/json' },
                                                             body: JSON.stringify({
