@@ -1,7 +1,7 @@
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
     
+      // update force
     // Handle CORS (allow requests from the website)
     if (request.method === "OPTIONS") {
       return new Response(null, {
