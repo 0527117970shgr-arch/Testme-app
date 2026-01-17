@@ -10,7 +10,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npx wrangler deploy worker.js --assets=./dist --compatibility-date=2026-01-17 --name=testme"
   },
   "dependencies": {
     "@langchain/community": "^1.1.1",
