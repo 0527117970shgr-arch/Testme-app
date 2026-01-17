@@ -48,8 +48,8 @@ export const handler = async (event) => {
             key: process.env.SMS_KEY,
             user: process.env.SMS_USER,
             pass: process.env.SMS_PASS,
-            sender: "TestMe",
-            recipient: cleanPhone,
+            sender: process.env.SMS_SENDER || "TestMe",
+            dest: cleanPhone,
             msg: message || "Test Message"
         };
 
