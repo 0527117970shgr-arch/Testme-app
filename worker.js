@@ -1,129 +1,47 @@
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    
-    // Handle CORS (allow requests from the website)
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
-    }
+    // 👇👇👇 רק כאן אתה משנה! בתוך הגרשיים הצהובים 👇👇👇
+    const myUser = "0549941435";   // מחק את העברית וכתוב את השם משתמש שלך
+    const myPass = "36916531";       // מחק את העברית וכתוב את הסיסמה שלך
+    const mySender = "TestMe";        // זה נשאר TestMe (או השם שאושר לך)
+    // 👆👆👆 זהו! אל תיגע בשאר הקוד 👆👆👆
 
-    // CORS headers for all responses
+    const url = new URL(request.url);
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
-      "Content-Type": "application/json",
     };
 
-    // Check for the SMS route (checking pathname explicitly)
-    if (url.pathname === "/api/send-sms" || url.pathname.endsWith("/api/send-sms")) {
-      console.log(`[SMS Route] Request received: ${request.method} ${url.pathname}`);
-      
-      // Only allow POST for actual SMS sending
-      if (request.method !== "POST") {
-        return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
-          status: 405,
-          headers: corsHeaders,
-        });
-      }
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
+    }
 
+    if (url.pathname.includes("/api/send-sms")) {
       try {
-        const body = await request.json();
-        console.log(`[SMS Route] Body received:`, JSON.stringify(body));
+        const data = await request.json();
+        const message = `הזמנה חדשה:
+שם: ${data.name || '-'}
+טלפון: ${data.phone || '-'}
+רכב: ${data.carNumber || '-'}
+תאריך: ${data.date || '-'}`;
 
-        // Input mapping
-        const phone = body.phone || body.to;
-        let message = body.message || body.customMessage;
+        const providerUrl = `https://www.free4sms.co.il/api/send?user=${myUser}&pass=${myPass}&sender=${mySender}&recipient=0527117970&msg=${encodeURIComponent(message)}`;
 
-        // Fallback message creation
-        if (!message && body.name) {
-          message = `New Booking: ${body.name} - ${body.service} (${body.cartype})`;
-        }
+        console.log("Sending SMS...");
+        const response = await fetch(providerUrl);
+        const result = await response.text();
 
-        if (!phone) {
-          throw new Error("Missing Phone Number");
-        }
-
-        // Clean phone number
-        const cleanPhone = phone.replace(/\D/g, '');
-        console.log(`[SMS Route] Sending to: ${cleanPhone}`);
-
-        // Hardcoded Free4SMS credentials
-        const apiUser = "השם_משתמש_שלך";
-        const apiPass = "הסיסמה_שלך";
-        const apiSender = "שם_השולח_שלך";
-
-        // Prepare payload (Form Data)
-        const params = new URLSearchParams();
-        params.append('user', apiUser);
-        params.append('pass', apiPass);
-        params.append('sender', apiSender);
-        params.append('recipient', cleanPhone);
-        params.append('msg', message);
-
-        const apiUrl = "https://api.free4sms.co.il/send_sms.php";
-        console.log(`[SMS Route] Calling Free4SMS API: ${apiUrl}`);
-
-        // Execute request
-        console.log(`[SMS Route] Calling Free4SMS API with params:`, {
-          user: apiUser,
-          sender: apiSender,
-          recipient: cleanPhone,
-          msgLength: message?.length || 0
+        return new Response(JSON.stringify({ success: true, result: result }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
-
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: params
-        });
-
-        const responseText = await response.text();
-        console.log(`[SMS Route] Upstream status: ${response.status}`);
-        console.log(`[SMS Route] Upstream response: ${responseText}`);
-
-        // Check if the response indicates success or failure
-        const isSuccess = response.ok && (
-          responseText.toLowerCase().includes('ok') || 
-          responseText.toLowerCase().includes('success') ||
-          response.status === 200
-        );
-
-        return new Response(JSON.stringify({
-          success: isSuccess,
-          provider: 'Free4SMS',
-          mocked: false,
-          phone: cleanPhone,
-          message: message,
-          httpStatus: response.status,
-          data: responseText
-        }), {
-          status: 200,
-          headers: corsHeaders,
-        });
-
-      } catch (error) {
-        console.error(`[SMS Route] Error:`, error.message, error.stack);
-        return new Response(JSON.stringify({
-          success: false,
-          error: error.message,
-          stack: error.stack
-        }), {
-          status: 200,
-          headers: corsHeaders,
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500, headers: corsHeaders
         });
       }
     }
 
-    // Fallback to static assets
-    return env.ASSETS.fetch(request);
-  }
+    return new Response("Not found", { status: 404, headers: corsHeaders });
+  },
 };
