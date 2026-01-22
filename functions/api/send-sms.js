@@ -14,7 +14,7 @@ export async function onRequestPost(context) {
       // פרטי Free4SMS שלך (שנשמרים בטוח בתוך הקוד כאן)
       const myUser = "0549941435"; 
       const myPass = "36916531";
-      const mySender = "TestMe";
+      const mySender = "0549941435";
   
       const message = `הזמנה חדשה:
   שם: ${data.name || '-'}
