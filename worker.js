@@ -1,7 +1,7 @@
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
     
-      // update force
     // Handle CORS (allow requests from the website)
     if (request.method === "OPTIONS") {
       return new Response(null, {
@@ -54,26 +54,10 @@ export default {
         const cleanPhone = phone.replace(/\D/g, '');
         console.log(`[SMS Route] Sending to: ${cleanPhone}`);
 
-        // Env vars (Free4SMS config)
-        const apiUser = env.FREE4_USER;
-        const apiPass = env.FREE4_PASS;
-        const apiSender = env.FREE4_SENDER || 'TestMe';
-
-        // Mock success if env vars are missing, but try to fetch if present
-        if (!apiUser || !apiPass) {
-          console.log(`[SMS Route] Missing credentials - mocking success`);
-          return new Response(JSON.stringify({
-            success: true,
-            provider: 'Free4SMS',
-            mocked: true,
-            message: "SMS send mocked (missing credentials)",
-            phone: cleanPhone,
-            data: "MOCK_RESPONSE"
-          }), {
-            status: 200,
-            headers: corsHeaders,
-          });
-        }
+        // Hardcoded Free4SMS credentials
+        const apiUser = "השם_משתמש_שלך";
+        const apiPass = "הסיסמה_שלך";
+        const apiSender = "שם_השולח_שלך";
 
         // Prepare payload (Form Data)
         const params = new URLSearchParams();
@@ -87,6 +71,13 @@ export default {
         console.log(`[SMS Route] Calling Free4SMS API: ${apiUrl}`);
 
         // Execute request
+        console.log(`[SMS Route] Calling Free4SMS API with params:`, {
+          user: apiUser,
+          sender: apiSender,
+          recipient: cleanPhone,
+          msgLength: message?.length || 0
+        });
+
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: {
@@ -96,13 +87,23 @@ export default {
         });
 
         const responseText = await response.text();
+        console.log(`[SMS Route] Upstream status: ${response.status}`);
         console.log(`[SMS Route] Upstream response: ${responseText}`);
 
+        // Check if the response indicates success or failure
+        const isSuccess = response.ok && (
+          responseText.toLowerCase().includes('ok') || 
+          responseText.toLowerCase().includes('success') ||
+          response.status === 200
+        );
+
         return new Response(JSON.stringify({
-          success: true,
+          success: isSuccess,
           provider: 'Free4SMS',
           mocked: false,
           phone: cleanPhone,
+          message: message,
+          httpStatus: response.status,
           data: responseText
         }), {
           status: 200,

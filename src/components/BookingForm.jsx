@@ -140,13 +140,24 @@ const BookingForm = () => {
             // eslint-disable-next-line no-unused-vars
             const { licenseImage, licenseImageUrl, ...smsData } = data;
 
-            await fetch('/api/send-sms', {
+            const response = await fetch('/api/send-sms', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(smsData)
             });
+
+            const result = await response.json();
+            console.log("SMS API Response:", result);
+            
+            if (!result.success) {
+                console.error("SMS sending failed:", result.error || result.data);
+            } else if (result.mocked) {
+                console.warn("SMS was mocked (missing credentials)");
+            } else {
+                console.log("SMS sent successfully:", result);
+            }
         } catch (error) {
-            console.error("Network Error calling Function:", error);
+            console.error("Network Error calling SMS Function:", error);
         }
     };
 
