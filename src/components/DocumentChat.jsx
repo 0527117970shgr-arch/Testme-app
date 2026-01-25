@@ -20,13 +20,12 @@ const DocumentChat = ({ isOpen, onToggle }) => {
         if (file) {
             const reader = new FileReader();
 
-            if (file.type.startsWith('image/')) {
+            if (file.type.startsWith('image/') || file.type === 'application/pdf') {
                 reader.onload = (e) => {
-                    // Store full base64 string for display if needed, but for sending we might need to strip prefix
-                    // Logic: split at comma
                     const base64Raw = e.target.result.split(',')[1];
                     setImageBase64(base64Raw);
-                    setDocumentText(`[Image Selected: ${file.name}]`); // Placeholder text
+                    const fileIcon = file.type === 'application/pdf' ? '📄' : '🖼️';
+                    setDocumentText(`[${fileIcon} ${file.name}]`);
                 };
                 reader.readAsDataURL(file);
             } else {
@@ -44,7 +43,7 @@ const DocumentChat = ({ isOpen, onToggle }) => {
         setCitations([]);
 
         try {
-            const response = await fetch('/.netlify/functions/smart-agent', {
+            const response = await fetch('/api/smart-agent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -151,7 +150,7 @@ const DocumentChat = ({ isOpen, onToggle }) => {
                             style={{ width: '100%', minHeight: '150px', padding: '10px', borderRadius: '4px', border: '1px solid #ddd', fontFamily: 'inherit' }}
                         />
                         <div style={{ marginTop: '5px', textAlign: language === 'he' ? 'right' : 'left' }}>
-                            <input type="file" accept=".txt,.md,.json,.png,.jpg,.jpeg" onChange={handleFileChange} />
+                            <input type="file" accept=".txt,.md,.json,.png,.jpg,.jpeg,.pdf,.webp,application/pdf,image/*" onChange={handleFileChange} />
                         </div>
                     </div>
 

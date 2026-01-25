@@ -128,7 +128,7 @@ const BookingForm = () => {
                         const controller = new AbortController();
                         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-                        const response = await fetch('/.netlify/functions/analyze-license', {
+                        const response = await fetch('/api/analyze-license', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
