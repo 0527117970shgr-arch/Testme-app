@@ -9,9 +9,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "node -e \"require('fs').copyFileSync('_worker.js', 'dist/_worker.js')\"",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy": "npx wrangler deploy worker.js --assets=./dist --compatibility-date=2026-01-17 --name=testme"
+    "deploy": "npm run build && npx wrangler pages deploy dist --project-name=testme-app"
   },
   "dependencies": {
     "@langchain/community": "^1.1.1",
