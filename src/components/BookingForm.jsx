@@ -3,6 +3,10 @@ import { collection, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { useLanguage } from '../context/LanguageContext';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set worker path for PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const BookingForm = () => {
     const { t, language } = useLanguage();
@@ -98,19 +102,53 @@ const BookingForm = () => {
             console.log("📄 Processing file:", file.name, "Type:", file.type, "Size:", (file.size / 1024).toFixed(2), "KB");
 
             let base64Data;
-            let mimeType = file.type;
+            let mimeType = 'image/jpeg'; // Always send as JPEG to OpenAI
 
             if (file.type === 'application/pdf') {
-                console.log("🔄 Converting PDF to base64...");
-                const reader = new FileReader();
-                base64Data = await new Promise((resolve, reject) => {
-                    reader.onload = () => {
-                        const base64 = reader.result.split(',')[1];
-                        resolve(base64);
-                    };
-                    reader.onerror = () => reject(new Error('Failed to read PDF'));
-                    reader.readAsDataURL(file);
-                });
+                console.log("🔄 Converting PDF to image...");
+                setStatus('pdf_converting'); // New status for PDF conversion
+
+                try {
+                    // Read PDF file as ArrayBuffer
+                    const arrayBuffer = await file.arrayBuffer();
+
+                    // Load PDF document
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    console.log(`📄 PDF loaded: ${pdf.numPages} page(s)`);
+
+                    // Get first page
+                    const page = await pdf.getPage(1);
+
+                    // Set scale for good quality (2x for high resolution)
+                    const scale = 2;
+                    const viewport = page.getViewport({ scale });
+
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = viewport.width;
+                    canvas.height = viewport.height;
+                    const ctx = canvas.getContext('2d');
+
+                    // Render PDF page to canvas
+                    await page.render({
+                        canvasContext: ctx,
+                        viewport: viewport
+                    }).promise;
+
+                    console.log(`✅ PDF rendered: ${canvas.width}x${canvas.height}px`);
+
+                    // Convert canvas to JPEG base64
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    base64Data = dataUrl.split(',')[1];
+
+                    console.log("✅ PDF converted to image. Size:", (base64Data.length * 0.75 / 1024).toFixed(2), "KB");
+
+                } catch (pdfError) {
+                    console.error("❌ PDF conversion error:", pdfError);
+                    throw new Error("שגיאה בהמרת PDF. נסה להעלות תמונה במקום.");
+                }
+
+                setStatus('ocr_processing');
                 setOcrProgress(30);
             } else {
                 console.log("🖼️  Compressing image...");
@@ -407,6 +445,7 @@ const BookingForm = () => {
                     </div>
                 )}
 
+                {status === 'pdf_converting' && <p style={{ color: 'orange', marginTop: '5px', fontWeight: 'bold' }}>🔄 ממיר PDF לתמונה...</p>}
                 {status === 'ocr_processing' && <p style={{ color: 'blue', marginTop: '5px', fontWeight: 'bold' }}>{t('form.processing')}</p>}
             </div>
 
