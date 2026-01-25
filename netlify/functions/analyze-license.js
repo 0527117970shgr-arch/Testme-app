@@ -25,29 +25,49 @@ export const handler = async (event) => {
             apiKey: process.env.OPENAI_API_KEY,
         });
 
-        // Prompt for GPT-4 Vision with Strict Protocols
+        // Enhanced OCR Prompt for Israeli Vehicle Licenses
         const prompt = `
-        Analyze this image of an Israeli vehicle license (Rishayon Rechev).
-        Follow this strict protocol:
-        
-        1. **Structure Detection**: Locate headers 'מספר רכב' (Vehicle Number), 'דגם' (Model), 'בעלים' (Owner), 'בתוקף עד' (Valid Until), 'תאריך מבחן' (Test Date).
-        
-        2. **Value Extraction Rules**:
-           - **licensePlate**: Look for the number inside the yellow box or under 'מספר רכב'. IT MUST BE 7 OR 8 DIGITS. 
-             * CORRECTION: If you see letters 'O', 'I', 'Z', 'S', replace them with '0', '1', '7', '5' respectively. 
-             * FILTER: Remove any hyphens or spaces. Return ONLY digits.
-           - **carType**: The model name (e.g., 'Mazda 3', 'Toyota Corolla').
-           - **licenseExpiry**: The date under 'בתוקף עד' (Valid Until). Format: DD/MM/YYYY.
-           - **testDate**: The date under 'תאריך מבחן'. Format: DD/MM/YYYY.
-           - **name**: The owner's name. Usually very top right or under 'בעלים'.
+אתה מומחה OCR וניתוח מסמכים הממוקד ברישיונות רכב ישראליים.
 
-        3. **Validation**:
-           - If 'licensePlate' found is NOT 7 or 8 digits after cleaning, set it to null. Do not guess.
-           - Cross-reference 'licenseExpiry' and 'testDate' to ensure year accuracy if possible.
+הנחיות קריטיות:
+1. זהו רישיון רכב ישראלי (Rishayon Rechev)
+2. יש לחלץ נתונים בדיוק מקסימלי
+3. החזר רק אובייקט JSON נקי, ללא הסברים
 
-        Return ONLY raw JSON.
-        Example: { "licensePlate": "12345678", "carType": "Mazda 3", "licenseExpiry": "01/01/2025", "name": "ישראל ישראלי" }
-        `;
+שדות לחילוץ:
+- licensePlate (מספר רכב): בדרך כלל 7 או 8 ספרות. זהו השדה החשוב ביותר. חפש את המספר בתיבה הצהובה או תחת "מספר רכב".
+  * תיקון: אם אתה רואה אותיות O, I, Z, S - החלף אותן ב-0, 1, 7, 5 בהתאמה
+  * סינון: הסר מקפים ורווחים. החזר רק ספרות
+  * אם המספר אינו 7-8 ספרות אחרי ניקוי, החזר null
+  
+- name (בעלות): שם בעל הרכב הרשום (מופיע בדרך כלל בפינה הימנית העליונה או תחת "בעלים")
+
+- licenseExpiry (תוקף הרישיון): התאריך המופיע תחת "בתוקף עד" בפורמט DD/MM/YYYY
+
+- carType (דגם רכב): למשל: מאזדה 3, טויוטה קורולה
+
+- testDate (תאריך מבחן): התאריך תחת "תאריך מבחן" בפורמט DD/MM/YYYY
+
+ולידציה:
+- אם התמונה מטושטשת מדי או אינה רישיון רכב, החזר:
+  {"error": "התמונה לא ברורה מספיק, אנא נסה לצלם שוב בתאורה טובה יותר"}
+
+פורמט הפלט (מבנה מדויק):
+{
+  "licensePlate": "12345678",
+  "name": "ישראל ישראלי",
+  "licenseExpiry": "20/05/2026",
+  "carType": "טויוטה קאמרי",
+  "testDate": "20/05/2026"
+}
+
+דגשים לדיוק:
+- שים לב להבדל בין 0 לאות O במספרים
+- מספר הרכב הוא הנתון החשוב ביותר לזיהוי
+- וודא שהתאריך בפורמט DD/MM/YYYY
+- בדוק הצלבה בין licenseExpiry ו-testDate לוודא דיוק השנה
+
+נתח את תמונת רישיון הרכב הישראלי הזה וחלץ את הנתונים:`;
 
         const response = await openai.chat.completions.create({
             model: "gpt-4-turbo",
