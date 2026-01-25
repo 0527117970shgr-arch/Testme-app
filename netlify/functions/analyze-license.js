@@ -2,27 +2,53 @@ import { OpenAI } from 'openai';
 import 'dotenv/config';
 
 export const handler = async (event) => {
+    const startTime = Date.now();
+
+    // CORS headers
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS'
+    };
+
+    // Handle preflight
+    if (event.httpMethod === 'OPTIONS') {
+        return { statusCode: 200, headers, body: '' };
+    }
+
     if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Make sure to use POST.' };
+        return {
+            statusCode: 405,
+            headers,
+            body: JSON.stringify({ error: 'Method not allowed. Use POST.' })
+        };
     }
 
     try {
-        const { imageBase64 } = JSON.parse(event.body);
+        const { imageBase64, fileType, fileName } = JSON.parse(event.body);
+
+        console.log(`📄 Processing: ${fileName || 'Unknown'}, Type: ${fileType}, Size: ${(imageBase64?.length * 0.75 / 1024).toFixed(2)}KB`);
 
         if (!process.env.OPENAI_API_KEY) {
-            console.error("Missing OPENAI_API_KEY");
+            console.error("❌ Missing OPENAI_API_KEY");
             return {
                 statusCode: 500,
+                headers,
                 body: JSON.stringify({ error: "Server configuration error: Missing API Key" })
             };
         }
 
         if (!imageBase64) {
-            return { statusCode: 400, body: JSON.stringify({ error: "Missing image Base64 data" }) };
+            return {
+                statusCode: 400,
+                headers,
+                body: JSON.stringify({ error: "Missing image/PDF data" })
+            };
         }
 
         const openai = new OpenAI({
             apiKey: process.env.OPENAI_API_KEY,
+            timeout: 45000, // 45 second timeout
         });
 
         // Enhanced OCR Prompt for Israeli Vehicle Licenses (PDF & Image Support)
@@ -42,7 +68,7 @@ export const handler = async (event) => {
 הנחיות קריטיות:
 1. זהו רישיון רכב ישראלי (Rishayon Rechev)
 2. יש לחלץ נתונים בדיוק מקסימלי
-3. החזר רק אובייקט JSON נקי, ללא הסברים
+3. החזר רק אובייקט JSON נקי, ללא הסברים או markdown
 
 שדות לחילוץ:
 - licensePlate (מספר רכב): בדרך כלל 7 או 8 ספרות. זהו השדה החשוב ביותר. חפש בתיבה הצהובה או תחת "מספר רכב".
@@ -79,6 +105,8 @@ export const handler = async (event) => {
 
 נתח את קובץ רישיון הרכב הישראלי הזה (תמונה או PDF) וחלץ את הנתונים:`;
 
+        console.log("🚀 Sending to OpenAI Vision...");
+
         const response = await openai.chat.completions.create({
             model: "gpt-4-turbo",
             messages: [
@@ -89,24 +117,36 @@ export const handler = async (event) => {
                         {
                             type: "image_url",
                             image_url: {
-                                "url": `data:image/jpeg;base64,${imageBase64}`,
+                                "url": `data:${fileType || 'image/jpeg'};base64,${imageBase64}`,
                             },
                         },
                     ],
                 },
             ],
-            max_tokens: 300,
+            max_tokens: 500,
         });
 
         const content = response.choices[0].message.content;
-        console.log("OpenAI Vision Response:", content);
+        console.log("✅ OpenAI Response:", content);
 
         // Clean formatting if GPT returns markdown blocks
         const cleanedContent = content.replace(/```json/g, '').replace(/```/g, '').trim();
-        const extracted = JSON.parse(cleanedContent);
+
+        let extracted;
+        try {
+            extracted = JSON.parse(cleanedContent);
+        } catch (parseErr) {
+            console.error("❌ JSON Parse Error:", parseErr);
+            console.error("Raw content:", cleanedContent);
+            throw new Error("הAI החזיר תשובה שאינה JSON תקין. נסה שוב.");
+        }
+
+        const processingTime = Date.now() - startTime;
+        console.log(`⏱️  Processing completed in ${processingTime}ms`);
 
         return {
             statusCode: 200,
+            headers,
             body: JSON.stringify({
                 text: "Analyzed via OpenAI",
                 extracted: {
@@ -115,15 +155,33 @@ export const handler = async (event) => {
                     name: extracted.name,
                     licenseExpiry: extracted.licenseExpiry,
                     carType: extracted.carType || extracted.model
-                }
+                },
+                processingTime
             })
         };
 
     } catch (error) {
-        console.error("Analyze-License Function Error:", error);
+        const processingTime = Date.now() - startTime;
+        console.error("🔴 Function Error:", error);
+        console.error("Stack:", error.stack);
+
+        let userMessage = "שגיאת שרת פנימית";
+        if (error.code === 'ETIMEDOUT' || error.name === 'TimeoutError') {
+            userMessage = "הזמן הקצוב פג. הקובץ אולי גדול מדי או מורכב מדי.";
+        } else if (error.message.includes('API')) {
+            userMessage = "שגיאה בתקשורת עם שירות הAI";
+        } else if (error.message.includes('JSON')) {
+            userMessage = error.message;
+        }
+
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: `Function Error: ${error.message}` })
+            headers,
+            body: JSON.stringify({
+                error: userMessage,
+                details: error.message,
+                processingTime
+            })
         };
     }
 };
