@@ -66,15 +66,38 @@ const BookingForm = () => {
         setOcrProgress(10);
 
         try {
-            console.log("Compressing image...");
-            const base64Image = await compressImage(file);
-            console.log("Compression complete. Sending to OCR...");
-            setOcrProgress(30);
+            console.log("Processing file:", file.name, "Type:", file.type);
 
+            let base64Data;
+
+            if (file.type === 'application/pdf') {
+                // Handle PDF: Convert entire file to base64
+                console.log("Converting PDF to base64...");
+                const reader = new FileReader();
+                base64Data = await new Promise((resolve, reject) => {
+                    reader.onload = () => {
+                        const base64 = reader.result.split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+                setOcrProgress(30);
+            } else {
+                // Handle Image: Compress then convert
+                console.log("Compressing image...");
+                base64Data = await compressImage(file);
+                setOcrProgress(30);
+            }
+
+            console.log("Sending to OCR...");
             const response = await fetch('/.netlify/functions/analyze-license', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageBase64: base64Image })
+                body: JSON.stringify({
+                    imageBase64: base64Data,
+                    fileType: file.type
+                })
             });
 
             const result = await response.json();
@@ -148,7 +171,7 @@ const BookingForm = () => {
 
             const result = await response.json();
             console.log("SMS API Response:", result);
-            
+
             if (!result.success) {
                 console.error("SMS sending failed:", result.error || result.data);
             } else if (result.mocked) {
@@ -298,11 +321,20 @@ const BookingForm = () => {
                 {licenseImage && (
                     <div style={{ textAlign: 'center', margin: '10px 0' }}>
                         <p style={{ fontSize: '0.8rem', marginBottom: '5px' }}>Preview:</p>
-                        <img
-                            src={URL.createObjectURL(licenseImage)}
-                            alt="License Preview"
-                            style={{ maxWidth: '100%', maxHeight: '150px', borderRadius: '5px', border: '1px solid #ccc' }}
-                        />
+                        {licenseImage.type === 'application/pdf' ? (
+                            <div style={{ padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '5px', border: '1px solid #ccc' }}>
+                                <span>📄 {licenseImage.name}</span>
+                                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '5px' }}>
+                                    PDF מוכן לניתוח
+                                </div>
+                            </div>
+                        ) : (
+                            <img
+                                src={URL.createObjectURL(licenseImage)}
+                                alt="License Preview"
+                                style={{ maxWidth: '100%', maxHeight: '150px', borderRadius: '5px', border: '1px solid #ccc' }}
+                            />
+                        )}
                     </div>
                 )}
 
