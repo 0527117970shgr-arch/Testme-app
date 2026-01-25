@@ -316,7 +316,7 @@ const BookingForm = () => {
                     <div>{t('form.scan_instructions.step3')}</div>
                 </div>
 
-                <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'block', margin: '15px auto' }} />
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,image/*,application/pdf" onChange={handleFileChange} style={{ display: 'block', margin: '15px auto' }} />
 
                 {licenseImage && (
                     <div style={{ textAlign: 'center', margin: '10px 0' }}>
